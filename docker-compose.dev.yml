@@ -1,12 +1,15 @@
+version: '3.8'
+
 services:
-  api:
+  rag-api:
     build: .
-    container_name: orchard-api
+    container_name: rag-api-dev
     ports:
       - "8011:8011"
     volumes:
       - ./chroma_db:/app/chroma_db
-      - ./documents:/app/documents  # Mount for document ingestion
+      - ./documents:/app/documents
+      - ./app:/app/app  # Mount source code for development
     environment:
       - OLLAMA_HOST=http://host.docker.internal:11434
       - OLLAMA_MODEL=llama3.1:8b
@@ -20,33 +23,30 @@ services:
     env_file:
       - .env
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
     networks:
-      - orchard-network
+      - rag-network
 
-  frontend:
-    build: ./frontend
-    container_name: orchard-frontend
+  rag-frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: rag-frontend-dev
     ports:
       - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - /app/node_modules
     environment:
       - REACT_APP_API_URL=http://localhost:8011
+      - CHOKIDAR_USEPOLLING=true
     depends_on:
-      - api
+      - rag-api
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    stdin_open: true
+    tty: true
     networks:
-      - orchard-network
+      - rag-network
 
 volumes:
   chroma_db:
@@ -55,5 +55,5 @@ volumes:
     driver: local
 
 networks:
-  orchard-network:
-    driver: bridge
+  rag-network:
+    driver: bridge 
