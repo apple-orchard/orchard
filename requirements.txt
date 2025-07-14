@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+chromadb
+ollama
+python-dotenv
+python-multipart
+langchain
+langchain-community
+pypdf2
+python-docx
+pydantic
+pydantic-settings
+sentence-transformers
+numpy
+pandas
+requests

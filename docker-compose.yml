@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  rag-api:
+    build: .
+    container_name: rag-api
+    ports:
+      - "8011:8011"
+    volumes:
+      - ./chroma_db:/app/chroma_db
+      - ./documents:/app/documents  # Mount for document ingestion
+    environment:
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - OLLAMA_MODEL=llama3.1:8b
+      - CHROMA_DB_PATH=/app/chroma_db
+      - EMBEDDING_MODEL=all-MiniLM-L6-v2
+      - CHUNK_SIZE=1000
+      - CHUNK_OVERLAP=200
+      - MAX_TOKENS=500
+      - TEMPERATURE=0.7
+      - MAX_RETRIEVED_CHUNKS=5
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  chroma_db:
+    driver: local
+  documents:
+    driver: local
+
+networks:
+  default:
+    name: rag-network 
