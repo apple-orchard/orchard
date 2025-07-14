@@ -410,7 +410,7 @@ Once the application is running, you can access:
 Check application logs:
 ```bash
 # Docker logs
-docker-compose logs rag-api
+docker-compose logs orchard-api
 
 # Local development
 python main.py  # Logs will appear in console
