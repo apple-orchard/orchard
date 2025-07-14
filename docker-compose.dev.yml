@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  rag-api:
+  api:
     build: .
-    container_name: rag-api-dev
+    container_name: orchard-api-dev
     ports:
       - "8011:8011"
     volumes:
@@ -24,13 +24,13 @@ services:
       - .env
     restart: unless-stopped
     networks:
-      - rag-network
+      - orchard-network
 
-  rag-frontend:
+  frontend:
     build: 
       context: ./frontend
       dockerfile: Dockerfile.dev
-    container_name: rag-frontend-dev
+    container_name: orchard-frontend-dev
     ports:
       - "3000:3000"
     volumes:
@@ -41,12 +41,12 @@ services:
       - REACT_APP_API_URL=http://localhost:8011
       - CHOKIDAR_USEPOLLING=true
     depends_on:
-      - rag-api
+      - api
     restart: unless-stopped
     stdin_open: true
     tty: true
     networks:
-      - rag-network
+      - orchard-network
 
 volumes:
   chroma_db:
@@ -55,5 +55,5 @@ volumes:
     driver: local
 
 networks:
-  rag-network:
+  orchard-network:
     driver: bridge 
