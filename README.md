@@ -136,13 +136,15 @@ cd orchard
 
 3. **Create virtual environment:**
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+# Install uv if needed
+# curl -LsSf https://astral.sh/uv/install.sh | sh
+
+uv venv
 ```
 
 4. **Install dependencies:**
 ```bash
-pip install -r requirements.txt
+uv sync
 ```
 
 5. **Set up environment variables:**
@@ -153,7 +155,7 @@ cp env.example .env
 
 6. **Run the backend:**
 ```bash
-python main.py
+uv run python main.py
 ```
 
 7. **Run the frontend (in a new terminal):**
@@ -585,4 +587,4 @@ For issues and questions:
 - Vector storage powered by [ChromaDB](https://www.trychroma.com/)
 - Document processing using [LangChain](https://langchain.com/)
 - Embeddings via [SentenceTransformers](https://www.sbert.net/)
-- Local AI responses from [Ollama](https://ollama.com/) 
+- Local AI responses from [Ollama](https://ollama.com/)
