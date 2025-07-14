@@ -1,9 +1,10 @@
 # RAG API - Retrieval-Augmented Generation with FastAPI
 
-A Python-based REST API that implements a Retrieval-Augmented Generation (RAG) workflow using FastAPI, ChromaDB, and Ollama. This system allows you to ingest documents, store their embeddings in ChromaDB, and query them using natural language to get AI-powered answers with source citations from local language models.
+A full-stack RAG (Retrieval-Augmented Generation) system with a Python backend and React frontend. The backend uses FastAPI, ChromaDB, and Ollama for document processing and AI-powered question answering. The frontend provides a simple chat interface for interacting with your documents.
 
 ## Features
 
+### Backend Features
 - **Document Ingestion**: Support for PDF, DOCX, and TXT files
 - **Intelligent Chunking**: Automatic text splitting with configurable chunk sizes
 - **Vector Storage**: ChromaDB for efficient embedding storage and retrieval
@@ -11,8 +12,16 @@ A Python-based REST API that implements a Retrieval-Augmented Generation (RAG) w
 - **REST API**: FastAPI-based endpoints for easy integration
 - **Source Citations**: Answers include references to source documents
 - **Local AI**: No external API dependencies - all processing runs locally
-- **Docker Support**: Containerized deployment with docker-compose
 - **Health Monitoring**: Built-in health checks and system testing
+
+### Frontend Features
+- **Chat Interface**: Simple, intuitive chat interface for document Q&A
+- **Document Upload**: Drag-and-drop file upload with progress indicators
+- **Real-time Responses**: Live chat with typing indicators and timestamps
+- **Source Display**: Shows document sources for each answer
+- **Responsive Design**: Works on desktop and mobile devices
+- **Error Handling**: User-friendly error messages and retry options
+- **Docker Support**: Containerized deployment with the backend
 
 ## Requirements
 
@@ -40,7 +49,7 @@ python setup_ollama.py
 2. **Clone the repository:**
 ```bash
 git clone <repository-url>
-cd harvest
+cd orchard
 ```
 
 3. **Create virtual environment:**
@@ -60,10 +69,21 @@ cp env.example .env
 # Edit .env with your Ollama configuration if needed
 ```
 
-6. **Run the application:**
+6. **Run the backend:**
 ```bash
 python main.py
 ```
+
+7. **Run the frontend (in a new terminal):**
+```bash
+cd frontend
+npm install
+npm start
+```
+
+The application will be available at:
+- **Frontend**: `http://localhost:3000`
+- **Backend API**: `http://localhost:8011`
 
 ### Quick Setup
 
@@ -94,7 +114,7 @@ ollama pull llama3.1:8b
 2. **Clone the repository:**
 ```bash
 git clone <repository-url>
-cd harvest
+cd orchard
 ```
 
 3. **Set up environment variables:**
@@ -105,10 +125,30 @@ cp env.example .env
 
 4. **Run with Docker Compose:**
 ```bash
+# Quick start (recommended)
+./start.sh
+
+# Or manually
 docker-compose up -d
 ```
 
-The API will be available at `http://localhost:8011`
+The application will be available at:
+- **Frontend**: `http://localhost:3000`
+- **Backend API**: `http://localhost:8011`
+- **API Documentation**: `http://localhost:8011/docs`
+
+### Development Mode
+
+For development with hot reloading:
+
+```bash
+docker-compose -f docker-compose.dev.yml up -d
+```
+
+This will:
+- Mount source code for live reloading
+- Enable React development server with hot reloading
+- Keep containers running with development optimizations
 
 ## Configuration
 
@@ -221,7 +261,22 @@ Pulls a model from Ollama hub.
 
 ## Usage Examples
 
-### 1. Ingest a Document
+### Using the Web Interface
+
+1. **Start the application:**
+   ```bash
+   docker-compose up -d
+   ```
+
+2. **Open your browser** and go to `http://localhost:3000`
+
+3. **Upload documents** using the sidebar upload area
+
+4. **Ask questions** in the chat interface
+
+### Using the API Directly
+
+#### 1. Ingest a Document
 
 ```bash
 curl -X POST "http://localhost:8011/ingest/text" \
@@ -232,7 +287,7 @@ curl -X POST "http://localhost:8011/ingest/text" \
   }'
 ```
 
-### 2. Query the Knowledge Base
+#### 2. Query the Knowledge Base
 
 ```bash
 curl -X POST "http://localhost:8011/query" \
@@ -243,7 +298,7 @@ curl -X POST "http://localhost:8011/query" \
   }'
 ```
 
-### 3. Upload a File
+#### 3. Upload a File
 
 ```bash
 curl -X POST "http://localhost:8011/ingest" \
@@ -251,7 +306,7 @@ curl -X POST "http://localhost:8011/ingest" \
   -F "metadata={\"category\": \"technical_docs\"}"
 ```
 
-### 4. Check System Health
+#### 4. Check System Health
 
 ```bash
 curl -X GET "http://localhost:8011/health"
@@ -262,8 +317,8 @@ curl -X GET "http://localhost:8011/health"
 ### Project Structure
 
 ```
-harvest/
-├── app/
+orchard/
+├── app/                     # Backend application
 │   ├── api/
 │   │   └── main.py          # FastAPI application
 │   ├── core/
@@ -276,10 +331,20 @@ harvest/
 │   └── utils/
 │       ├── database.py      # ChromaDB utilities
 │       └── document_processor.py  # Document processing
-├── main.py                  # Application entry point
+├── frontend/                # React frontend
+│   ├── src/
+│   │   ├── components/      # React components
+│   │   ├── services/        # API services
+│   │   ├── styles/          # CSS files
+│   │   └── App.js           # Main App component
+│   ├── public/              # Public assets
+│   ├── package.json         # Frontend dependencies
+│   └── Dockerfile          # Frontend Docker config
+├── main.py                  # Backend entry point
 ├── requirements.txt         # Python dependencies
-├── Dockerfile              # Docker configuration
-├── docker-compose.yml      # Docker Compose setup
+├── docker-compose.yml      # Production Docker setup
+├── docker-compose.dev.yml  # Development Docker setup
+├── setup_ollama.py         # Ollama setup script
 └── README.md               # This file
 ```
 
@@ -337,7 +402,7 @@ Once the application is running, you can access:
 
 5. **Docker Issues**
    - Ensure Docker and Docker Compose are installed
-   - Check that ports 8011 is available
+   - Check that ports 3000 and 8011 are available
    - For Docker: Ensure Ollama is accessible via `host.docker.internal:11434`
 
 ### Logs

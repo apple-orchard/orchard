@@ -26,16 +26,16 @@ class RAGService:
                 n_results=max_chunks
             )
             
-            # if not retrieval_results["documents"]:
-            #     return {
-            #         "answer": "I couldn't find any relevant information in the knowledge base to answer your question.",
-            #         "sources": [],
-            #         "metadata": {
-            #             "question": question,
-            #             "chunks_retrieved": 0,
-            #             "retrieval_successful": False
-            #         }
-            #     }
+            if not retrieval_results["documents"]:
+                return {
+                    "answer": "I couldn't find any relevant information in the knowledge base to answer your question.",
+                    "sources": [],
+                    "metadata": {
+                        "question": question,
+                        "chunks_retrieved": 0,
+                        "retrieval_successful": False
+                    }
+                }
             
             # Step 2: Generate answer using LLM
             llm_response = self.llm_service.generate_answer(
