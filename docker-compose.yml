@@ -1,6 +1,8 @@
 services:
   api:
-    build: .
+    build: 
+      context: .
+      target: production
     container_name: orchard-api
     ports:
       - "8011:8011"
