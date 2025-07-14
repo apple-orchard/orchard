@@ -1,6 +1,6 @@
 # RAG API - Retrieval-Augmented Generation with FastAPI
 
-A full-stack RAG (Retrieval-Augmented Generation) system with a Python backend and React frontend. The backend uses FastAPI, ChromaDB, and Ollama for document processing and AI-powered question answering. The frontend provides a simple chat interface for interacting with your documents.
+A full-stack RAG (Retrieval-Augmented Generation) system with a Python backend and React frontend. The backend uses FastAPI, ChromaDB, and Ollama for document processing and AI-powered question answering. The frontend provides a modern chat interface with TypeScript and Tailwind CSS for interacting with your documents.
 
 ## Features
 
@@ -13,14 +13,16 @@ A full-stack RAG (Retrieval-Augmented Generation) system with a Python backend a
 - **Source Citations**: Answers include references to source documents
 - **Local AI**: No external API dependencies - all processing runs locally
 - **Health Monitoring**: Built-in health checks and system testing
+- **Hot Reloading**: Development mode with automatic code reload
 
 ### Frontend Features
-- **Chat Interface**: Simple, intuitive chat interface for document Q&A
+- **Modern Chat Interface**: TypeScript-based chat interface with Tailwind CSS
 - **Document Upload**: Drag-and-drop file upload with progress indicators
 - **Real-time Responses**: Live chat with typing indicators and timestamps
 - **Source Display**: Shows document sources for each answer
-- **Responsive Design**: Works on desktop and mobile devices
+- **Responsive Design**: Modern, mobile-friendly interface
 - **Error Handling**: User-friendly error messages and retry options
+- **Hot Reloading**: Development mode with automatic UI updates
 - **Docker Support**: Containerized deployment with the backend
 
 ## Requirements
@@ -28,10 +30,11 @@ A full-stack RAG (Retrieval-Augmented Generation) system with a Python backend a
 - Python 3.11+
 - Ollama installed and running locally
 - Docker (optional, for containerized deployment)
+- Node.js 18+ (for frontend development)
 
-## Installation
+## Quick Start
 
-### Option 1: Local Development
+### Option 1: Development Mode (Recommended for Development)
 
 1. **Install and start Ollama:**
 ```bash
@@ -44,6 +47,85 @@ ollama pull llama3.1:8b
 
 # OR use the automated setup script
 python setup_ollama.py
+```
+
+2. **Clone the repository:**
+```bash
+git clone <repository-url>
+cd orchard
+```
+
+3. **Set up environment variables:**
+```bash
+cp env.example .env
+# Edit .env with your Ollama configuration if needed
+```
+
+4. **Start development environment:**
+```bash
+# Start with hot reloading for both frontend and backend
+./dev.sh dev
+
+# Or for a fresh rebuild
+./dev.sh rebuild
+```
+
+The application will be available at:
+- **Frontend**: `http://localhost:3000` (with hot reloading)
+- **Backend API**: `http://localhost:8011` (with hot reloading)
+- **API Documentation**: `http://localhost:8011/docs`
+
+### Option 2: Production Mode
+
+```bash
+# Quick production start
+./start.sh
+
+# Or using dev.sh
+./dev.sh prod
+```
+
+## Development Script (dev.sh)
+
+The `dev.sh` script provides a comprehensive development workflow:
+
+```bash
+# Development commands
+./dev.sh dev       # Start development environment with hot reloading
+./dev.sh rebuild   # Rebuild and restart development environment
+./dev.sh logs      # Show logs from running containers
+./dev.sh stop      # Stop all containers
+./dev.sh cleanup   # Clean up processes and containers
+
+# Production commands
+./dev.sh prod      # Start production environment
+
+# Help
+./dev.sh help      # Show all available commands
+```
+
+### What the Development Mode Includes:
+
+- ✅ **Backend Hot Reloading**: FastAPI automatically restarts on code changes
+- ✅ **Frontend Hot Reloading**: React development server with live updates
+- ✅ **Tailwind CSS**: Fully configured with PostCSS for modern styling
+- ✅ **TypeScript**: Full TypeScript support with type checking
+- ✅ **Docker Development**: Containerized development with volume mounts
+- ✅ **Automatic Setup**: Checks Ollama, Docker, and creates .env file
+- ✅ **Log Streaming**: Real-time logs from both services
+
+## Installation Options
+
+### Option A: Local Development (Without Docker)
+
+1. **Install and start Ollama:**
+```bash
+# Install Ollama (visit https://ollama.com/download for your OS)
+# Start Ollama server
+ollama serve
+
+# Pull the default model (in another terminal)
+ollama pull llama3.1:8b
 ```
 
 2. **Clone the repository:**
@@ -81,74 +163,33 @@ npm install
 npm start
 ```
 
-The application will be available at:
-- **Frontend**: `http://localhost:3000`
-- **Backend API**: `http://localhost:8011`
+### Option B: Docker Development (Recommended)
 
-### Quick Setup
+1. **Prerequisites:**
+   - Docker and Docker Compose installed
+   - Ollama running on host system (`ollama serve`)
+   - Required model pulled (`ollama pull llama3.1:8b`)
 
-You can also use the automated setup script to check your Ollama installation:
-
+2. **Start development environment:**
 ```bash
-python setup_ollama.py
-```
-
-This script will:
-- Check if Ollama is installed and running
-- List available models
-- Pull the recommended model if needed
-- Test the model connection
-
-### Option 2: Docker Deployment
-
-1. **Install and start Ollama on host:**
-```bash
-# Install Ollama (visit https://ollama.com/download for your OS)
-# Start Ollama server
-ollama serve
-
-# Pull the default model (in another terminal)
-ollama pull llama3.1:8b
-```
-
-2. **Clone the repository:**
-```bash
+# Clone and setup
 git clone <repository-url>
 cd orchard
-```
-
-3. **Set up environment variables:**
-```bash
 cp env.example .env
-# Edit .env with your Ollama configuration if needed
+
+# Start development with hot reloading
+./dev.sh dev
 ```
 
-4. **Run with Docker Compose:**
+### Option C: Production Deployment
+
 ```bash
-# Quick start (recommended)
+# Quick production start
 ./start.sh
 
 # Or manually
 docker-compose up -d
 ```
-
-The application will be available at:
-- **Frontend**: `http://localhost:3000`
-- **Backend API**: `http://localhost:8011`
-- **API Documentation**: `http://localhost:8011/docs`
-
-### Development Mode
-
-For development with hot reloading:
-
-```bash
-docker-compose -f docker-compose.dev.yml up -d
-```
-
-This will:
-- Mount source code for live reloading
-- Enable React development server with hot reloading
-- Keep containers running with development optimizations
 
 ## Configuration
 
@@ -265,7 +306,9 @@ Pulls a model from Ollama hub.
 
 1. **Start the application:**
    ```bash
-   docker-compose up -d
+   ./dev.sh dev  # Development mode
+   # OR
+   ./start.sh    # Production mode
    ```
 
 2. **Open your browser** and go to `http://localhost:3000`
@@ -331,22 +374,76 @@ orchard/
 │   └── utils/
 │       ├── database.py      # ChromaDB utilities
 │       └── document_processor.py  # Document processing
-├── frontend/                # React frontend
+├── frontend/                # React frontend (TypeScript)
 │   ├── src/
-│   │   ├── components/      # React components
-│   │   ├── services/        # API services
+│   │   ├── components/      # React components (TypeScript)
+│   │   ├── services/        # API services (TypeScript)
+│   │   ├── types/           # TypeScript type definitions
 │   │   ├── styles/          # CSS files
-│   │   └── App.js           # Main App component
+│   │   └── App.tsx          # Main App component
 │   ├── public/              # Public assets
 │   ├── package.json         # Frontend dependencies
-│   └── Dockerfile          # Frontend Docker config
+│   ├── tailwind.config.js   # Tailwind CSS configuration
+│   ├── postcss.config.js    # PostCSS configuration
+│   ├── tsconfig.json        # TypeScript configuration
+│   ├── Dockerfile          # Production frontend Docker config
+│   └── Dockerfile.dev      # Development frontend Docker config
 ├── main.py                  # Backend entry point
 ├── requirements.txt         # Python dependencies
 ├── docker-compose.yml      # Production Docker setup
 ├── docker-compose.dev.yml  # Development Docker setup
+├── dev.sh                  # Development workflow script
+├── start.sh                # Production startup script
 ├── setup_ollama.py         # Ollama setup script
 └── README.md               # This file
 ```
+
+### Development Workflow
+
+1. **Start development environment:**
+   ```bash
+   ./dev.sh dev
+   ```
+
+2. **Make changes to code:**
+   - Backend changes in `app/` directory automatically restart the server
+   - Frontend changes in `frontend/src/` automatically reload the browser
+   - Tailwind CSS classes are automatically compiled
+
+3. **View logs:**
+   ```bash
+   ./dev.sh logs
+   ```
+
+4. **Stop development environment:**
+   ```bash
+   ./dev.sh stop
+   ```
+
+5. **Clean rebuild:**
+   ```bash
+   ./dev.sh rebuild
+   ```
+
+### Frontend Development
+
+The frontend uses modern technologies:
+
+- **React 18** with TypeScript
+- **Tailwind CSS** for styling
+- **PostCSS** for CSS processing
+- **Hot Module Replacement** for instant updates
+- **ESLint** for code quality
+
+### Backend Development
+
+The backend includes:
+
+- **FastAPI** with automatic OpenAPI documentation
+- **Uvicorn** with hot reloading in development
+- **Pydantic** for data validation
+- **ChromaDB** for vector storage
+- **Ollama** integration for AI responses
 
 ### Running Tests
 
@@ -405,15 +502,45 @@ Once the application is running, you can access:
    - Check that ports 3000 and 8011 are available
    - For Docker: Ensure Ollama is accessible via `host.docker.internal:11434`
 
+6. **Port 3000 Already in Use**
+   - Stop existing processes: `./dev.sh stop`
+   - Kill React dev servers: `pkill -f "node.*react-scripts"`
+   - Or use the cleanup command: `./dev.sh cleanup`
+
+7. **Tailwind CSS Not Working**
+   - Ensure the development environment is properly started with `./dev.sh dev`
+   - Check that `tailwind.config.js` and `postcss.config.js` are properly configured
+   - Verify that `src/index.css` contains the Tailwind directives
+
+### Development Troubleshooting
+
+```bash
+# Check container status
+docker-compose -f docker-compose.dev.yml ps
+
+# View logs
+./dev.sh logs
+
+# Clean restart
+./dev.sh rebuild
+
+# Manual cleanup
+./dev.sh cleanup
+```
+
 ### Logs
 
 Check application logs:
 ```bash
-# Docker logs
-docker-compose logs orchard-api
+# Development logs
+./dev.sh logs
 
-# Local development
-python main.py  # Logs will appear in console
+# Production logs
+docker-compose logs
+
+# Specific service logs
+docker-compose -f docker-compose.dev.yml logs frontend
+docker-compose -f docker-compose.dev.yml logs api
 ```
 
 ## Performance Optimization
@@ -434,9 +561,10 @@ python main.py  # Logs will appear in console
 
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+3. Start development environment: `./dev.sh dev`
+4. Make your changes
+5. Add tests if applicable
+6. Submit a pull request
 
 ## License
 
@@ -452,6 +580,8 @@ For issues and questions:
 ## Acknowledgments
 
 - Built with [FastAPI](https://fastapi.tiangolo.com/)
+- Frontend powered by [React](https://reactjs.org/) and [TypeScript](https://www.typescriptlang.org/)
+- Styled with [Tailwind CSS](https://tailwindcss.com/)
 - Vector storage powered by [ChromaDB](https://www.trychroma.com/)
 - Document processing using [LangChain](https://langchain.com/)
 - Embeddings via [SentenceTransformers](https://www.sbert.net/)

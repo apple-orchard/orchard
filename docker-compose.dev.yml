@@ -1,8 +1,8 @@
-version: '3.8'
-
 services:
   api:
-    build: .
+    build: 
+      context: .
+      target: development
     container_name: orchard-api-dev
     ports:
       - "8011:8011"
@@ -10,6 +10,7 @@ services:
       - ./chroma_db:/app/chroma_db
       - ./documents:/app/documents
       - ./app:/app/app  # Mount source code for development
+      - ./main.py:/app/main.py  # Mount main.py for development
     environment:
       - OLLAMA_HOST=http://host.docker.internal:11434
       - OLLAMA_MODEL=llama3.1:8b
@@ -36,10 +37,17 @@ services:
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
+      - ./frontend/package.json:/app/package.json
+      - ./frontend/package-lock.json:/app/package-lock.json
+      - ./frontend/tailwind.config.js:/app/tailwind.config.js
+      - ./frontend/postcss.config.js:/app/postcss.config.js
+      - ./frontend/tsconfig.json:/app/tsconfig.json
       - /app/node_modules
     environment:
       - REACT_APP_API_URL=http://localhost:8011
       - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+      - FAST_REFRESH=true
     depends_on:
       - api
     restart: unless-stopped

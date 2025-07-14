@@ -3,14 +3,29 @@ FROM node:18-alpine
 # Set working directory
 WORKDIR /app
 
+# Install dependencies for better file watching
+RUN apk add --no-cache inotify-tools
+
 # Copy package.json and package-lock.json (if available)
 COPY package*.json ./
 
 # Install dependencies
 RUN npm install
 
+# Copy configuration files
+COPY tailwind.config.js ./
+COPY postcss.config.js ./
+COPY tsconfig.json ./
+
 # Copy source code
-COPY . .
+COPY src ./src
+COPY public ./public
+
+# Set environment variables for development
+ENV NODE_ENV=development
+ENV CHOKIDAR_USEPOLLING=true
+ENV WATCHPACK_POLLING=true
+ENV FAST_REFRESH=true
 
 # Expose port
 EXPOSE 3000
