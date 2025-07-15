@@ -188,8 +188,207 @@ def trigger_ingestion(plugin_name: str, source_id: Optional[str] = None, full_sy
         print(f"Source: {response.get('source_id')}")
         print(f"Sync Type: {response.get('sync_type')}")
         
+        # Ask if user wants to monitor the job
+        monitor = input("\nMonitor job progress? (Y/n): ")
+        if monitor.lower() != 'n':
+            monitor_job(plugin_name, job_id)
+        
     except Exception as e:
         print(f"❌ Failed to trigger ingestion: {e}")
+
+
+def monitor_job(plugin_name: str, job_id: str):
+    """Monitor a job's progress with detailed feedback"""
+    import time
+    import sys
+    
+    print(f"\n📊 Monitoring job {job_id}...")
+    print("Press Ctrl+C to stop monitoring (job will continue in background)")
+    print("-" * 60)
+    
+    last_status = None
+    last_processed = 0
+    start_time = time.time()
+    
+    try:
+        while True:
+            try:
+                response = api_client.get(f"/api/plugins/{plugin_name}/status/{job_id}")
+                
+                status = response.get("status", "unknown")
+                total = response.get("total_documents", 0)
+                processed = response.get("processed_documents", 0)
+                failed = response.get("failed_documents", 0)
+                current_doc = response.get("current_document", "")
+                error_message = response.get("error_message", "")
+                metadata = response.get("metadata", {})
+                
+                # Calculate progress
+                progress = 0
+                if total > 0:
+                    progress = (processed / total) * 100
+                
+                # Calculate rate
+                elapsed = time.time() - start_time
+                rate = processed / elapsed if elapsed > 0 else 0
+                
+                # Estimate time remaining
+                eta = ""
+                if rate > 0 and total > processed:
+                    remaining = (total - processed) / rate
+                    eta = f" | ETA: {int(remaining)}s"
+                
+                # Build status line
+                status_line = f"Status: {status.upper()}"
+                if total > 0:
+                    status_line += f" | Progress: {processed}/{total} ({progress:.1f}%)"
+                else:
+                    status_line += f" | Documents: {processed}"
+                
+                if failed > 0:
+                    status_line += f" | Failed: {failed}"
+                
+                status_line += f" | Rate: {rate:.1f} docs/s{eta}"
+                
+                # Clear current line and print status
+                sys.stdout.write('\r' + ' ' * 80 + '\r')  # Clear line
+                sys.stdout.write(status_line)
+                sys.stdout.flush()
+                
+                # Print additional info on status change or new document
+                if status != last_status or processed > last_processed:
+                    print()  # New line for additional info
+                    
+                    if current_doc and processed > last_processed:
+                        # Truncate long document names
+                        doc_display = current_doc if len(current_doc) <= 50 else current_doc[:47] + "..."
+                        print(f"  📄 Processing: {doc_display}")
+                    
+                    if status == "running" and last_status != "running":
+                        print(f"  ▶️  Job is now running...")
+                    
+                    last_status = status
+                    last_processed = processed
+                
+                # Check if job is complete
+                if status in ["completed", "failed", "cancelled"]:
+                    print()  # New line
+                    print("-" * 60)
+                    
+                    if status == "completed":
+                        print(f"✅ Job completed successfully!")
+                        print(f"   Total documents: {processed}")
+                        if failed > 0:
+                            print(f"   Failed documents: {failed}")
+                        print(f"   Duration: {int(elapsed)} seconds")
+                        
+                        # Show additional metadata if available
+                        if metadata:
+                            if metadata.get("chunks_created"):
+                                print(f"   Chunks created: {metadata['chunks_created']}")
+                            if metadata.get("repository"):
+                                print(f"   Repository: {metadata['repository']}")
+                    
+                    elif status == "failed":
+                        print(f"❌ Job failed!")
+                        if error_message:
+                            print(f"   Error: {error_message}")
+                        if metadata.get("error_details"):
+                            print(f"   Details: {metadata['error_details']}")
+                    
+                    else:
+                        print(f"⚠️  Job was cancelled")
+                    
+                    break
+                
+                time.sleep(2)  # Check every 2 seconds
+                
+            except KeyboardInterrupt:
+                print("\n\n⚠️  Stopped monitoring (job continues in background)")
+                print(f"   Job ID: {job_id}")
+                print(f"   Check status with: orchard plugins status {plugin_name} {job_id}")
+                break
+            except Exception as e:
+                print(f"\n❌ Error monitoring job: {e}")
+                break
+                
+    except Exception as e:
+        print(f"\n❌ Monitoring error: {e}")
+
+
+def reload_config():
+    """Reload the configuration"""
+    try:
+        response = api_client.post("/reload-config")
+        print(f"✅ Configuration reloaded successfully!")
+        if response.get("message"):
+            print(f"   {response['message']}")
+    except Exception as e:
+        print(f"❌ Failed to reload configuration: {e}")
+
+
+def check_job_status(plugin_name: str, job_id: str):
+    """Check the status of a specific job"""
+    try:
+        response = api_client.get(f"/api/plugins/{plugin_name}/status/{job_id}")
+        
+        print(f"\n📊 Job Status for {job_id}")
+        print("-" * 60)
+        
+        status = response.get("status", "unknown")
+        total = response.get("total_documents", 0)
+        processed = response.get("processed_documents", 0)
+        failed = response.get("failed_documents", 0)
+        error_message = response.get("error_message", "")
+        metadata = response.get("metadata", {})
+        
+        # Status emoji
+        status_emoji = {
+            "pending": "⏳",
+            "running": "▶️",
+            "completed": "✅",
+            "failed": "❌",
+            "cancelled": "⚠️"
+        }.get(status, "❓")
+        
+        print(f"Status: {status_emoji} {status.upper()}")
+        
+        if total > 0:
+            progress = (processed / total) * 100
+            print(f"Progress: {processed}/{total} ({progress:.1f}%)")
+        else:
+            print(f"Documents processed: {processed}")
+        
+        if failed > 0:
+            print(f"Failed documents: {failed}")
+        
+        if error_message:
+            print(f"Error: {error_message}")
+        
+        # Show metadata
+        if metadata:
+            print("\nAdditional Information:")
+            if metadata.get("repository"):
+                print(f"  Repository: {metadata['repository']}")
+            if metadata.get("branch"):
+                print(f"  Branch: {metadata['branch']}")
+            if metadata.get("chunks_created"):
+                print(f"  Chunks created: {metadata['chunks_created']}")
+            if metadata.get("started_at"):
+                print(f"  Started: {metadata['started_at']}")
+            if metadata.get("completed_at"):
+                print(f"  Completed: {metadata['completed_at']}")
+            if metadata.get("error_details"):
+                print(f"  Error details: {metadata['error_details']}")
+        
+        # Offer to monitor if still running
+        if status == "running":
+            monitor = input("\nJob is still running. Monitor progress? (Y/n): ")
+            if monitor.lower() != 'n':
+                monitor_job(plugin_name, job_id)
+        
+    except Exception as e:
+        print(f"❌ Failed to check job status: {e}")
 
 
 def system_info():
@@ -273,8 +472,10 @@ Examples:
   orchard health                    # Check system health
   orchard plugins list              # List all plugins
   orchard plugins ingest github     # Trigger GitHub ingestion
+  orchard plugins status github job123  # Check job status
   orchard rag query "What is RAG?"  # Query the knowledge base
   orchard rag info                  # Show system information
+  orchard rag reload                # Reload configuration
         """
     )
     
@@ -296,6 +497,7 @@ Examples:
     rag_subparsers = rag_parser.add_subparsers(dest="rag_command")
     
     rag_subparsers.add_parser("info", help="Show system information")
+    rag_subparsers.add_parser("reload", help="Reload configuration from file")
     
     query_parser = rag_subparsers.add_parser("query", help="Query the knowledge base")
     query_parser.add_argument("question", nargs="?", help="Question to ask")
@@ -312,6 +514,10 @@ Examples:
     ingest_parser.add_argument("--source-id", help="Source ID to ingest (optional)")
     ingest_parser.add_argument("--incremental", action="store_true", help="Perform incremental sync")
     
+    status_parser = plugin_subparsers.add_parser("status", help="Check job status")
+    status_parser.add_argument("plugin_name", help="Name of the plugin")
+    status_parser.add_argument("job_id", help="Job ID to check")
+    
     args = parser.parse_args()
     
     # Update API client URL if specified
@@ -325,6 +531,8 @@ Examples:
         elif args.command == "rag":
             if args.rag_command == "info":
                 system_info()
+            elif args.rag_command == "reload":
+                reload_config()
             elif args.rag_command == "query":
                 query_documents(args.question, args.max_chunks)
             else:
@@ -335,6 +543,8 @@ Examples:
             elif args.plugin_command == "ingest":
                 full_sync = not args.incremental
                 trigger_ingestion(args.plugin_name, args.source_id, full_sync)
+            elif args.plugin_command == "status":
+                check_job_status(args.plugin_name, args.job_id)
             else:
                 parser.print_help()
         else:

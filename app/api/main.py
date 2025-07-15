@@ -196,6 +196,16 @@ async def pull_model(model_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+@app.post("/reload-config")
+async def reload_configuration():
+    """Reload configuration from file"""
+    try:
+        # Reinitialize plugin service to reload configuration
+        plugin_service.initialize()
+        return {"message": "Configuration reloaded successfully", "status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to reload configuration: {str(e)}")
+
 @app.post("/ingest/text", response_model=IngestResponse)
 async def ingest_text_simple(request: IngestRequest):
     """

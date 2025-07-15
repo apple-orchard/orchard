@@ -15,7 +15,17 @@
              "paths": [],    
              "exclude_patterns": ["*.pyc", "__pycache__/", "*.test.py"],
              "sync_mode": "full"  // "full" or "incremental"
-           }
+           },
+           {
+            "id": "water-123", 
+            "owner": "kognise",
+            "repo": "water.css",
+            "branch": "master",
+      //      "paths": ["app/", "plugins/"],  // Optional: specific paths to ingest
+            "paths": [],    
+            "exclude_patterns": ["*.pyc", "__pycache__/", "*.test.py"],
+            "sync_mode": "full"  // "full" or "incremental"
+          }
         ],
         "github_token": "${GITHUB_TOKEN}"  // Set GITHUB_TOKEN environment variable
       }

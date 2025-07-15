@@ -221,12 +221,33 @@ class GithubIngestionPlugin(IngestionPlugin):
             )
             
         except Exception as e:
-            # Mark job as failed
+            import traceback
+            # Get detailed error information
+            error_details = {
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "traceback": traceback.format_exc(),
+                "repository": repo.get_full_name(),
+                "branch": repo.branch
+            }
+            
+            # Log the error
+            print(f"ERROR: Ingestion failed for {repo.get_full_name()}")
+            print(f"Error Type: {error_details['error_type']}")
+            print(f"Error Message: {error_details['error_message']}")
+            print(f"Branch: {repo.branch}")
+            print(f"Traceback:\n{error_details['traceback']}")
+            
+            # Mark job as failed with detailed error
             self.update_job(
                 job_id,
                 status=IngestionStatus.FAILED,
                 completed_at=datetime.now(),
-                error_message=str(e)
+                error_message=str(e),
+                metadata={
+                    **self._jobs[job_id].metadata,
+                    "error_details": error_details
+                }
             )
     
     def _delete_existing_chunks(self, repository: str) -> None:
