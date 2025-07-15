@@ -1,6 +1,7 @@
 import ollama
 from typing import List, Dict, Any, Optional
 from app.core.config import settings
+from textwrap import dedent
 
 class LLMService:
     def __init__(self):
@@ -94,14 +95,14 @@ class LLMService:
 
     def _create_prompt(self, question: str, context: str) -> str:
         """Create a prompt for the LLM"""
-        return f"""Based on the following context, please answer the question. If the context doesn't contain enough information to answer the question, please say so.
+        return dedent(f"""
+            Based on the following context, please answer the question. If the context doesn't contain enough information to answer the question, please say so.
+            Context:
+            {context}
 
-Context:
-{context}
+            Question: {question}
 
-Question: {question}
-
-Answer:"""
+            Answer:""")
 
     def _prepare_sources(self, metadata_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Prepare sources information from metadata"""
@@ -144,24 +145,6 @@ Answer:"""
             return True
         except Exception as e:
             print(f"Ollama connection test failed: {e}")
-            return False
-
-    def list_models(self) -> List[str]:
-        """List available models in Ollama"""
-        try:
-            models = self.client.list()
-            return [model['name'] for model in models['models']]
-        except Exception as e:
-            print(f"Error listing models: {e}")
-            return []
-
-    def pull_model(self, model_name: str) -> bool:
-        """Pull a model if it's not available locally"""
-        try:
-            self.client.pull(model_name)
-            return True
-        except Exception as e:
-            print(f"Error pulling model {model_name}: {e}")
             return False
 
 # Global LLM service instance

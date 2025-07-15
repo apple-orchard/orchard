@@ -161,29 +161,6 @@ async def test_system():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@app.get("/models")
-async def list_models():
-    """List available Ollama models"""
-    try:
-        from app.services.llm_service import llm_service
-        models = llm_service.list_models()
-        return {"models": models}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
-@app.post("/models/pull")
-async def pull_model(model_name: str):
-    """Pull a model from Ollama"""
-    try:
-        from app.services.llm_service import llm_service
-        success = llm_service.pull_model(model_name)
-        if success:
-            return {"message": f"Model {model_name} pulled successfully"}
-        else:
-            raise HTTPException(status_code=500, detail=f"Failed to pull model {model_name}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
 @app.post("/ingest/text", response_model=IngestResponse)
 async def ingest_text_simple(request: IngestRequest):
     """
