@@ -1,6 +1,6 @@
 services:
   api:
-    build: 
+    build:
       context: .
       target: development
     container_name: orchard-api-dev
@@ -10,7 +10,11 @@ services:
       - ./chroma_db:/app/chroma_db
       - ./documents:/app/documents
       - ./app:/app/app  # Mount source code for development
+      - ./plugins:/app/plugins  # Mount plugins for development
       - ./main.py:/app/main.py  # Mount main.py for development
+      - ./rag_config.yaml:/app/rag_config.yaml  # Mount config file
+      - ./cli:/app/cli  # Mount CLI for development
+      - ./orchard_cli.py:/app/orchard_cli.py  # Mount CLI entry point
     environment:
       - OLLAMA_HOST=http://host.docker.internal:11434
       - OLLAMA_MODEL=llama3.1:8b
@@ -28,7 +32,7 @@ services:
       - orchard-network
 
   frontend:
-    build: 
+    build:
       context: ./frontend
       dockerfile: Dockerfile.dev
     container_name: orchard-frontend-dev
@@ -64,4 +68,4 @@ volumes:
 
 networks:
   orchard-network:
-    driver: bridge 
+    driver: bridge

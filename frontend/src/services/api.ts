@@ -4,6 +4,13 @@ import {
   FileUploadResponse,
   FileUploadMetadata,
   APIService,
+  PluginListResponse,
+  FullConfig,
+  PluginConfig,
+  IngestionResponse,
+  JobStatus,
+  SourceListResponse,
+  GlobalSettings,
 } from '../types';
 
 const API_BASE_URL: string = process.env.REACT_APP_API_URL || 'http://localhost:8011';
@@ -67,6 +74,130 @@ export const ragAPI: APIService = {
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.detail || 'Failed to upload file');
+    }
+  },
+};
+
+// Plugin API methods
+export const pluginAPI = {
+  // List all plugins
+  listPlugins: async (): Promise<PluginListResponse> => {
+    try {
+      const response: AxiosResponse<PluginListResponse> = await api.get('/api/plugins');
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to list plugins');
+    }
+  },
+
+  // Get full configuration
+  getFullConfig: async (): Promise<FullConfig> => {
+    try {
+      const response: AxiosResponse<FullConfig> = await api.get('/api/plugins/config');
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to get configuration');
+    }
+  },
+
+  // Get plugin configuration
+  getPluginConfig: async (pluginName: string): Promise<PluginConfig> => {
+    try {
+      const response = await api.get(`/api/plugins/${pluginName}/config`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to get plugin config');
+    }
+  },
+
+  // Update plugin configuration
+  updatePluginConfig: async (pluginName: string, config: PluginConfig): Promise<PluginConfig> => {
+    try {
+      const response = await api.put(`/api/plugins/${pluginName}/config`, config);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to update plugin config');
+    }
+  },
+
+  // Enable plugin
+  enablePlugin: async (pluginName: string): Promise<void> => {
+    try {
+      await api.post(`/api/plugins/${pluginName}/enable`);
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to enable plugin');
+    }
+  },
+
+  // Disable plugin
+  disablePlugin: async (pluginName: string): Promise<void> => {
+    try {
+      await api.post(`/api/plugins/${pluginName}/disable`);
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to disable plugin');
+    }
+  },
+
+  // Trigger ingestion
+  triggerIngestion: async (pluginName: string, sourceId: string, fullSync: boolean = true): Promise<IngestionResponse> => {
+    try {
+      const response: AxiosResponse<IngestionResponse> = await api.post(
+        `/api/plugins/${pluginName}/ingest`,
+        {
+          source_id: sourceId,
+          full_sync: fullSync,
+        }
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to trigger ingestion');
+    }
+  },
+
+  // Get job status
+  getJobStatus: async (pluginName: string, jobId: string): Promise<JobStatus> => {
+    try {
+      const response: AxiosResponse<JobStatus> = await api.get(
+        `/api/plugins/${pluginName}/status/${jobId}`
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to get job status');
+    }
+  },
+
+  // Get plugin sources
+  getPluginSources: async (pluginName: string): Promise<SourceListResponse> => {
+    try {
+      const response: AxiosResponse<SourceListResponse> = await api.get(
+        `/api/plugins/${pluginName}/sources`
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to get plugin sources');
+    }
+  },
+
+  // Get global settings
+  getGlobalSettings: async (): Promise<GlobalSettings> => {
+    try {
+      const response: AxiosResponse<GlobalSettings> = await api.get('/api/plugins/settings/global');
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to get global settings');
+    }
+  },
+
+  // Update global settings
+  updateGlobalSettings: async (settings: GlobalSettings): Promise<GlobalSettings> => {
+    try {
+      const response: AxiosResponse<GlobalSettings> = await api.put(
+        '/api/plugins/settings/global',
+        settings
+      );
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to update global settings');
     }
   },
 };

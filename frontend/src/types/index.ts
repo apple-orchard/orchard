@@ -51,6 +51,92 @@ export interface ModelPullResponse {
   message: string;
 }
 
+// Plugin types
+export interface PluginInfo {
+  name: string;
+  display_name: string;
+  description: string;
+  version: string;
+  author: string;
+  capabilities: string[];
+  enabled: boolean;
+  initialized: boolean;
+  total_sources: number;
+}
+
+export interface PluginListResponse {
+  plugins: PluginInfo[];
+}
+
+export interface PluginConfig {
+  enabled: boolean;
+  config: Record<string, any>;
+}
+
+export interface GlobalSettings {
+  chunk_size: number;
+  chunk_overlap: number;
+  batch_size: number;
+  auto_sync: boolean;
+  sync_interval_hours: number;
+}
+
+export interface FullConfig {
+  version: string;
+  plugins: Record<string, PluginConfig>;
+  global_settings: GlobalSettings;
+}
+
+export interface IngestionRequest {
+  source_id: string;
+  full_sync: boolean;
+}
+
+export interface IngestionResponse {
+  job_id: string;
+  plugin_name: string;
+  source_id: string;
+  sync_type: string;
+}
+
+export interface JobStatus {
+  id: string;
+  plugin_name: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  started_at?: string;
+  completed_at?: string;
+  total_documents: number;
+  processed_documents: number;
+  failed_documents: number;
+  error_message?: string;
+  metadata: Record<string, any>;
+}
+
+export interface SourceInfo {
+  id: string;
+  name: string;
+  type: string;
+  config: Record<string, any>;
+  last_synced?: string;
+  sync_mode: string;
+  enabled: boolean;
+}
+
+export interface SourceListResponse {
+  sources: SourceInfo[];
+}
+
+export interface GitHubRepository {
+  id: string;
+  owner: string;
+  repo: string;
+  branch: string;
+  paths?: string[];
+  exclude_patterns?: string[];
+  last_synced?: string;
+  sync_mode: 'full' | 'incremental';
+}
+
 // Component Props types
 export interface ChatBoxProps {
   messages: Message[];

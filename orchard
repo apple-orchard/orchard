@@ -1,0 +1,37 @@
+#!/bin/bash
+# Orchard CLI - Local wrapper that connects to containerized API
+
+# Colors for output
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+# Check if the API is running by checking if port 8011 is open
+if ! curl -s http://localhost:8011/health > /dev/null 2>&1; then
+    echo -e "${RED}Error: Orchard API is not accessible on http://localhost:8011${NC}"
+    echo "Please start the services first with:"
+    echo "  ./dev.sh dev    # For development"
+    echo "  ./start.sh      # For production"
+    exit 1
+fi
+
+# Check if we have Python 3 available
+if command -v python3 &> /dev/null; then
+    PYTHON_CMD="python3"
+elif command -v python &> /dev/null; then
+    PYTHON_CMD="python"
+else
+    echo -e "${RED}Error: Python is not installed${NC}"
+    echo "Please install Python 3.8 or higher"
+    exit 1
+fi
+
+# Install requests if not available (minimal requirement for CLI)
+$PYTHON_CMD -c "import requests" 2>/dev/null || {
+    echo -e "${GREEN}Installing required dependency: requests${NC}"
+    $PYTHON_CMD -m pip install --user requests >/dev/null 2>&1
+}
+
+# Run the standalone CLI with the local Python
+# The API URL defaults to localhost:8011 which is correct for containerized API
+$PYTHON_CMD orchard_cli_standalone.py "$@" 

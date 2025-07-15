@@ -44,6 +44,9 @@ node_modules/
 # ChromaDB
 chroma_db/
 
+# Plugin configuration
+.github_cache/
+
 # IDE
 .idea/
 .vscode/
