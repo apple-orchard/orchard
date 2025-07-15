@@ -10,7 +10,9 @@ services:
       - ./chroma_db:/app/chroma_db
       - ./documents:/app/documents
       - ./app:/app/app  # Mount source code for development
+      - ./plugins:/app/plugins  # Mount plugins for development
       - ./main.py:/app/main.py  # Mount main.py for development
+      - ./rag_config.jsonc:/app/rag_config.jsonc  # Mount config file
     environment:
       - OLLAMA_HOST=http://host.docker.internal:11434
       - OLLAMA_MODEL=llama3.1:8b

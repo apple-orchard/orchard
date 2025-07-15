@@ -1,0 +1,42 @@
+{
+  "version": "1.0",
+  "plugins": {
+    "github": {
+      "enabled": true,  // Set to true to enable GitHub ingestion
+      "config": {
+        "repositories": [
+          // Example repository configuration
+           {
+             "id": "orchard-rag",
+             "owner": "apple-orchard",
+             "repo": "orchard",
+             "branch": "main",
+       //      "paths": ["app/", "plugins/"],  // Optional: specific paths to ingest
+             "paths": [],    
+             "exclude_patterns": ["*.pyc", "__pycache__/", "*.test.py"],
+             "sync_mode": "full"  // "full" or "incremental"
+           }
+        ],
+        "github_token": "${GITHUB_TOKEN}"  // Set GITHUB_TOKEN environment variable
+      }
+    },
+    "website": {
+      "enabled": false,  // Website plugin not implemented yet
+      "config": {
+        "sites": [],
+        "crawler_settings": {
+          "max_depth": 2,
+          "respect_robots_txt": true,
+          "user_agent": "OrchardRAG/1.0"
+        }
+      }
+    }
+  },
+  "global_settings": {
+    "chunk_size": 1024,
+    "chunk_overlap": 200,
+    "batch_size": 100,
+    "auto_sync": false,
+    "sync_interval_hours": 24
+  }
+} 

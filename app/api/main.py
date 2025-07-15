@@ -12,6 +12,8 @@ from app.models.schemas import (
     HealthResponse
 )
 from app.services.rag_service import rag_service
+from app.services.plugin_service import plugin_service
+from app.api.plugins import router as plugins_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -30,6 +32,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(plugins_router, prefix="/api")
+
+# Initialize plugin service on startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup."""
+    plugin_service.initialize()
+    print("Plugin service initialized")
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
