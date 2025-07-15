@@ -170,8 +170,6 @@ export interface DocumentUploadProps {
 export interface APIService {
   query: (message: string) => Promise<RAGQueryResponse>;
   uploadFile: (file: File, metadata: FileUploadMetadata) => Promise<FileUploadResponse>;
-  getModels: () => Promise<ModelsResponse>;
-  pullModel: (modelName: string) => Promise<ModelPullResponse>;
 }
 
 // Common utility types

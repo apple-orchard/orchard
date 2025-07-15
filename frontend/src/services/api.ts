@@ -3,8 +3,6 @@ import {
   RAGQueryResponse,
   FileUploadResponse,
   FileUploadMetadata,
-  ModelsResponse,
-  ModelPullResponse,
   APIService,
   PluginListResponse,
   FullConfig,
@@ -76,28 +74,6 @@ export const ragAPI: APIService = {
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.detail || 'Failed to upload file');
-    }
-  },
-
-  // Get available models
-  getModels: async (): Promise<ModelsResponse> => {
-    try {
-      const response: AxiosResponse<ModelsResponse> = await api.get('/models');
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.detail || 'Failed to list models');
-    }
-  },
-
-  // Pull a model
-  pullModel: async (modelName: string): Promise<ModelPullResponse> => {
-    try {
-      const response: AxiosResponse<ModelPullResponse> = await api.post('/models/pull', null, {
-        params: { model_name: modelName },
-      });
-      return response.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.detail || 'Failed to pull model');
     }
   },
 };

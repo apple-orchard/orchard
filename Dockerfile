@@ -1,4 +1,4 @@
-FROM python:3.13-slim as base
+FROM python:3.13-slim AS base
 
 # Set working directory
 WORKDIR /app
@@ -21,7 +21,7 @@ COPY pyproject.toml .
 RUN uv sync
 
 # Development stage
-FROM base as development
+FROM base AS development
 
 # Copy application code
 COPY . .
@@ -40,7 +40,7 @@ ENV CHROMA_DB_PATH=/app/chroma_db
 CMD ["uv", "run", "uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8011", "--reload"]
 
 # Production stage
-FROM base as production
+FROM base AS production
 
 # Copy application code
 COPY . .
