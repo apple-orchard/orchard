@@ -105,5 +105,17 @@ class ChromaDBManager:
         except Exception as e:
             print(f"Error deleting collection: {e}")
 
+    def get_client(self):
+        """Return the underlying ChromaDB client instance."""
+        return self.client
+
+    def get_or_create_collection(self, name: str, metadata: Optional[dict] = None):
+        """Get or create a collection by name, with optional metadata."""
+        try:
+            collection = self.client.get_collection(name=name)
+        except Exception:
+            collection = self.client.create_collection(name=name, metadata=metadata or {})
+        return collection
+
 # Global database manager instance
 chroma_db = ChromaDBManager()

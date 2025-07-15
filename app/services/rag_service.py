@@ -158,17 +158,102 @@ class RAGService:
         """Get information about the knowledge base"""
         try:
             collection_info = self.chroma_db.get_collection_info()
+            
+            # Get more detailed information about the data
+            total_chunks = collection_info.get("count", 0)
+            
+            # Get sample documents to analyze metadata
+            sample_docs = []
+            if total_chunks > 0:
+                try:
+                    # Get a sample of documents to analyze metadata
+                    sample_results = self.chroma_db.query_documents(
+                        query="",  # Empty query to get random samples
+                        n_results=min(100, total_chunks)
+                    )
+                    sample_docs = sample_results.get("metadatas", [])
+                except Exception:
+                    sample_docs = []
+            
+            # Analyze metadata to categorize data
+            data_summary = self._analyze_data_summary(sample_docs, total_chunks)
+            
             return {
                 "status": "healthy",
                 "collection_name": collection_info.get("name", "Unknown"),
-                "total_chunks": collection_info.get("count", 0),
-                "collection_metadata": collection_info.get("metadata", {})
+                "total_chunks": total_chunks,
+                "collection_metadata": collection_info.get("metadata", {}),
+                "data_summary": data_summary
             }
         except Exception as e:
             return {
                 "status": "error",
                 "error": str(e)
             }
+    
+    def _analyze_data_summary(self, sample_metadatas: List[Dict[str, Any]], total_chunks: int) -> Dict[str, Any]:
+        """Analyze metadata to provide a summary of ingested data"""
+        summary = {
+            "total_documents": 0,
+            "file_types": {},
+            "sources": {},
+            "categories": {},
+            "recent_ingestions": [],
+            "estimated_size_mb": 0
+        }
+        
+        if not sample_metadatas:
+            return summary
+        
+        # Analyze file types and sources
+        for metadata in sample_metadatas:
+            # Count file types
+            file_type = metadata.get("file_type", "unknown")
+            summary["file_types"][file_type] = summary["file_types"].get(file_type, 0) + 1
+            
+            # Count sources
+            source = metadata.get("source", "unknown")
+            summary["sources"][source] = summary["sources"].get(source, 0) + 1
+            
+            # Count categories
+            category = metadata.get("category", "uncategorized")
+            summary["categories"][category] = summary["categories"].get(category, 0) + 1
+            
+            # Track recent ingestions
+            ingestion_time = metadata.get("ingestion_timestamp")
+            if ingestion_time:
+                summary["recent_ingestions"].append({
+                    "source": source,
+                    "file_type": file_type,
+                    "timestamp": ingestion_time
+                })
+        
+        # Scale up counts based on sample size
+        sample_size = len(sample_metadatas)
+        if sample_size > 0:
+            scale_factor = total_chunks / sample_size
+            for file_type in summary["file_types"]:
+                summary["file_types"][file_type] = int(summary["file_types"][file_type] * scale_factor)
+            for source in summary["sources"]:
+                summary["sources"][source] = int(summary["sources"][source] * scale_factor)
+            for category in summary["categories"]:
+                summary["categories"][category] = int(summary["categories"][category] * scale_factor)
+        
+        # Estimate total documents (assuming average chunks per document)
+        avg_chunks_per_doc = 3  # Rough estimate
+        summary["total_documents"] = max(1, total_chunks // avg_chunks_per_doc)
+        
+        # Estimate size (rough calculation: ~1KB per chunk)
+        summary["estimated_size_mb"] = round(total_chunks * 1 / 1024, 2)
+        
+        # Sort recent ingestions by timestamp
+        summary["recent_ingestions"].sort(
+            key=lambda x: x.get("timestamp", ""), 
+            reverse=True
+        )
+        summary["recent_ingestions"] = summary["recent_ingestions"][:10]  # Keep only 10 most recent
+        
+        return summary
     
     def test_system(self) -> Dict[str, Any]:
         """Test all components of the RAG system"""
