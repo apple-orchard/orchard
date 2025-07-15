@@ -1,5 +1,5 @@
 import ollama
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Generator
 from app.core.config import settings
 from textwrap import dedent
 
@@ -9,7 +9,7 @@ class LLMService:
         self.model = settings.ollama_model
 
     def generate_answer(self, question: str, context_chunks: List[str],
-                       metadata_list: List[Dict[str, Any]]) -> Dict[str, Any]:
+                       metadata_list: List[Dict[str, Any]]) -> Generator[Dict[str, Any], None, None]:
         """Generate an answer using Ollama with provided context"""
 
         # Format context for the prompt
@@ -19,7 +19,7 @@ class LLMService:
         prompt = self._create_prompt(question, context_text)
 
         try:
-            response = self.client.chat(
+            stream = self.client.chat(
                 model=self.model,
                 messages=[
                     {
@@ -58,24 +58,37 @@ class LLMService:
                 options={
                     "temperature": settings.temperature,
                     "num_predict": settings.max_tokens,
-                }
+                },
+                stream=True
             )
 
-            answer = response['message']['content']
+            prompt_tokens = 0
+            completion_tokens = 0
 
             # Prepare sources information
             sources = self._prepare_sources(metadata_list)
+            partial_answer = ""
 
-            return {
-                "answer": answer,
-                "sources": sources,
-                "usage": {
-                    "prompt_tokens": response.get('prompt_eval_count', 0),
-                    "completion_tokens": response.get('eval_count', 0),
-                    "total_tokens": response.get('prompt_eval_count', 0) + response.get('eval_count', 0)
-                },
-                "model": self.model
-            }
+            for chunk in stream:
+            # Ollama returns the same shape as the non-streaming response, piece-by-piece
+                content = chunk["message"].get("content", "")
+                partial_answer += content
+                # prompt_tokens = chunk.get("prompt_eval_count", prompt_tokens)
+                # completion_tokens += chunk.get("eval_count", 0)
+
+                yield {
+                    "answer": partial_answer,      # partial text
+                    "sources": sources,
+                    "usage": {
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                        "total_tokens": prompt_tokens + completion_tokens,
+                    },
+                    "model": self.model
+                }
+
+            # Signal completion after all chunks are processed
+            yield {"done": True}
 
         except Exception as e:
             raise Exception(f"Error generating answer: {str(e)}")

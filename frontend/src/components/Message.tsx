@@ -67,7 +67,7 @@ const Message: React.FC<MessageProps> = ({ message }) => {
                 <span className="w-1 h-1 rounded-full bg-current animate-pulse" style={{ animationDelay: '-0.16s' }}></span>
                 <span className="w-1 h-1 rounded-full bg-current animate-pulse"></span>
               </div>
-              {content}
+              <div className="w-full text-wrap px-2">{content}</div>
             </div>
           ) : (
             content

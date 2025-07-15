@@ -1,5 +1,5 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
+from fastapi.responses import JSONResponse, StreamingResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exception_handlers import http_exception_handler
 from typing import Optional
@@ -8,7 +8,8 @@ import os
 from datetime import datetime
 import logging
 logger = logging.getLogger(__name__)
-
+import logging
+from fastapi.exception_handlers import http_exception_handler
 from app.core.config import settings
 from app.models.schemas import (
     QueryRequest, QueryResponse, IngestRequest, IngestResponse,
@@ -17,6 +18,7 @@ from app.models.schemas import (
 from app.services.rag_service import rag_service
 from app.services.plugin_service import plugin_service
 from app.api.plugins import router as plugins_router
+import json
 
 # Create FastAPI app
 app = FastAPI(
@@ -62,31 +64,81 @@ async def health_check():
         version=settings.api_version
     )
 
-@app.post("/query", response_model=QueryResponse)
-async def query_documents(request: QueryRequest):
+@app.post("/query")
+async def query_documents(request: QueryRequest, http_request: Request):
     """
     Query the knowledge base with a question.
 
     This endpoint accepts a question and returns an AI-generated answer
     based on relevant documents in the knowledge base.
+    
+    Supports different response formats based on Accept header:
+    - text/plain: Returns just the answer as plain text
+    - application/stream+json: Returns streaming JSON response
+    - application/json: Returns complete JSON response with sources and metadata
     """
 
     try:
         if not request.question.strip():
             raise HTTPException(status_code=400, detail="Question cannot be empty")
-
+        
+        # Get the Accept header
+        accept_header = http_request.headers.get("accept", "application/json")
+        
         # Process the query using RAG service
-        result = rag_service.query(
+        stream = rag_service.query(
             question=request.question,
             max_chunks=request.max_chunks
         )
-
-        return QueryResponse(
-            answer=result["answer"],
-            sources=result["sources"],
-            metadata=result["metadata"]
-        )
-
+        
+        # Handle text/plain response
+        if "text/plain" in accept_header:
+            final_answer = ""
+            for chunk in stream:
+                if "done" in chunk:
+                    break
+                if "answer" in chunk:
+                    final_answer = chunk["answer"]
+            return PlainTextResponse(content=final_answer)
+        
+        # Handle application/stream+json response
+        elif "application/stream+json" in accept_header:
+            async def generate_stream():
+                for chunk in stream:
+                    if "done" in chunk:
+                        yield f"data: {json.dumps({'done': True})}\n\n"
+                    else:
+                        yield f"data: {json.dumps(chunk)}\n\n"
+            
+            return StreamingResponse(
+                generate_stream(),
+                media_type="application/stream+json",
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
+            )
+        
+        # Handle application/json response (default)
+        else:
+            # Consume all chunks from the generator to get the complete response
+            final_answer = ""
+            sources = None
+            metadata = None
+            
+            for chunk in stream:
+                if "done" in chunk:
+                    break
+                if "answer" in chunk:
+                    final_answer = chunk["answer"]
+                if "sources" in chunk and sources is None:
+                    sources = chunk["sources"]
+                if "usage" in chunk and metadata is None:
+                    metadata = chunk.get("usage", {})
+            
+            return QueryResponse(
+                answer=final_answer,
+                sources=sources,
+                metadata=metadata
+            )
+        
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
