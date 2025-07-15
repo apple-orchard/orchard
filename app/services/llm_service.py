@@ -125,53 +125,6 @@ Answer:"""
 
         return sources
 
-    def generate_summary(self, text: str, max_length: int = 200) -> str:
-        """Generate a summary of the provided text"""
-        try:
-            response = self.client.chat(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": f"You are a helpful assistant that creates concise summaries. Please summarize the following text in no more than {max_length} words."
-                    },
-                    {
-                        "role": "system",
-                        "content":
-                        """
-                            Don't mention anything about chunks or sources, unless you know a url or external name of the source.
-                        """
-                    },
-                    {
-                        "role": "system",
-                        "content":
-                        """
-                            If you don't find any information for what the user is asking, just say that you don't have information on that.
-                        """
-                    },
-                    {
-                        "role": "system",
-                        "content":
-                        """
-                            Don't worry about being too precise. If someone asks for a time period, don't mince words about it.
-                        """
-                    },
-                    {
-                        "role": "user",
-                        "content": text
-                    }
-                ],
-                options={
-                    "temperature": 0.3,
-                    "num_predict": max_length * 2  # Rough estimate for tokens
-                }
-            )
-
-            return response['message']['content']
-
-        except Exception as e:
-            raise Exception(f"Error generating summary: {str(e)}")
-
     def test_connection(self) -> bool:
         """Test if the Ollama connection is working"""
         try:
