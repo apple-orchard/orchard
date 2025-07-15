@@ -13,7 +13,7 @@ This plugin enables ingestion of code and documentation from GitHub repositories
 
 ## Configuration
 
-Add the following to your `rag_config.jsonc`:
+Add the following to your `rag_config.yaml`:
 
 ```jsonc
 {
@@ -141,4 +141,4 @@ To extend this plugin:
 
 ## License
 
-This plugin is part of the Orchard RAG system and follows the same license terms. 
+This plugin is part of the Orchard RAG system and follows the same license terms.

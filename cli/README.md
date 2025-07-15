@@ -247,7 +247,7 @@ The CLI includes comprehensive error handling:
 The CLI uses the same configuration as the main RAG system:
 
 - API URL can be specified with `--api-url`
-- Configuration is loaded from `rag_config.jsonc`
+- Configuration is loaded from `rag_config.yaml`
 - Environment variables are supported
 
 ## Troubleshooting
@@ -275,4 +275,4 @@ To extend the CLI:
 2. Use the helper classes for common operations
 3. Add proper error handling
 4. Include help text for all commands
-5. Test with different API configurations 
+5. Test with different API configurations

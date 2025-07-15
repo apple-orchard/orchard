@@ -33,12 +33,12 @@ const ConfigEditor: React.FC = () => {
     try {
       setSaving(true);
       setError(null);
-      
+
       // In visual mode, save the current state
       if (activeTab === 'visual' && config) {
         // Update global settings
         await pluginAPI.updateGlobalSettings(config.global_settings);
-        
+
         // Update each plugin config
         for (const [pluginName, pluginConfig] of Object.entries(config.plugins || {})) {
           await pluginAPI.updatePluginConfig(pluginName, pluginConfig as any);
@@ -46,18 +46,18 @@ const ConfigEditor: React.FC = () => {
       } else {
         // In JSON mode, parse and save
         const parsed = JSON.parse(editedConfig);
-        
+
         // Update global settings
         if (parsed.global_settings) {
           await pluginAPI.updateGlobalSettings(parsed.global_settings);
         }
-        
+
         // Update each plugin config
         for (const [pluginName, pluginConfig] of Object.entries(parsed.plugins || {})) {
           await pluginAPI.updatePluginConfig(pluginName, pluginConfig as any);
         }
       }
-      
+
       // Reload to get the saved config
       await loadConfig();
       setError(null);
@@ -74,7 +74,7 @@ const ConfigEditor: React.FC = () => {
 
   const handleAddRepository = () => {
     if (!config) return;
-    
+
     const newRepo: GitHubRepository = {
       id: `repo-${Date.now()}`,
       owner: '',
@@ -84,10 +84,10 @@ const ConfigEditor: React.FC = () => {
       exclude_patterns: [],
       sync_mode: 'full'
     };
-    
+
     const githubConfig = config.plugins.github?.config || { repositories: [] };
     const repositories = [...((githubConfig as any).repositories || []), newRepo];
-    
+
     setConfig({
       ...config,
       plugins: {
@@ -105,11 +105,11 @@ const ConfigEditor: React.FC = () => {
 
   const handleUpdateRepository = (index: number, field: string, value: any) => {
     if (!config) return;
-    
+
     const githubConfig = config.plugins.github?.config || { repositories: [] };
     const repositories = [...((githubConfig as any).repositories || [])];
     repositories[index] = { ...repositories[index], [field]: value };
-    
+
     setConfig({
       ...config,
       plugins: {
@@ -127,10 +127,10 @@ const ConfigEditor: React.FC = () => {
 
   const handleRemoveRepository = (index: number) => {
     if (!config) return;
-    
+
     const githubConfig = config.plugins.github?.config || { repositories: [] };
     const repositories = ((githubConfig as any).repositories || []).filter((_: any, i: number) => i !== index);
-    
+
     setConfig({
       ...config,
       plugins: {
@@ -148,7 +148,7 @@ const ConfigEditor: React.FC = () => {
 
   const handleTogglePlugin = (pluginName: string, enabled: boolean) => {
     if (!config) return;
-    
+
     setConfig({
       ...config,
       plugins: {
@@ -189,13 +189,13 @@ const ConfigEditor: React.FC = () => {
           <span>Refresh</span>
         </button>
       </div>
-      
+
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
           {error}
         </div>
       )}
-      
+
       {/* Tab switcher */}
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
@@ -225,7 +225,7 @@ const ConfigEditor: React.FC = () => {
           </button>
         </nav>
       </div>
-      
+
       {activeTab === 'visual' ? (
         <div className="space-y-6">
           {/* Plugin Configurations */}
@@ -257,7 +257,7 @@ const ConfigEditor: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
-              
+
               {expandedPlugin === 'github' && (
                 <div className="px-6 pb-6 space-y-4">
                   <div className="flex justify-between items-center">
@@ -269,7 +269,7 @@ const ConfigEditor: React.FC = () => {
                       Add Repository
                     </button>
                   </div>
-                  
+
                   {githubRepos.length === 0 ? (
                     <p className="text-gray-500 text-sm">No repositories configured. Click "Add Repository" to get started.</p>
                   ) : (
@@ -285,7 +285,7 @@ const ConfigEditor: React.FC = () => {
                               Remove
                             </button>
                           </div>
-                          
+
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -299,7 +299,7 @@ const ConfigEditor: React.FC = () => {
                                 placeholder="unique-id"
                               />
                             </div>
-                            
+
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Owner
@@ -312,7 +312,7 @@ const ConfigEditor: React.FC = () => {
                                 placeholder="username or org"
                               />
                             </div>
-                            
+
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Repository Name
@@ -325,7 +325,7 @@ const ConfigEditor: React.FC = () => {
                                 placeholder="repository-name"
                               />
                             </div>
-                            
+
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Branch
@@ -338,7 +338,7 @@ const ConfigEditor: React.FC = () => {
                                 placeholder="main"
                               />
                             </div>
-                            
+
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Sync Mode
@@ -353,7 +353,7 @@ const ConfigEditor: React.FC = () => {
                               </select>
                             </div>
                           </div>
-                          
+
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                               Paths (comma separated, optional)
@@ -369,7 +369,7 @@ const ConfigEditor: React.FC = () => {
                               placeholder="src/, docs/, README.md"
                             />
                           </div>
-                          
+
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                               Exclude Patterns (comma separated)
@@ -389,7 +389,7 @@ const ConfigEditor: React.FC = () => {
                       ))}
                     </div>
                   )}
-                  
+
                   <div className="mt-4 pt-4 border-t border-gray-200">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       GitHub Token
@@ -419,12 +419,12 @@ const ConfigEditor: React.FC = () => {
                     <p className="mt-1 text-xs text-gray-500">
                       Use {'${GITHUB_TOKEN}'} to reference environment variable
                     </p>
-                    {config.plugins.github?.config?.github_token && 
+                    {config.plugins.github?.config?.github_token &&
                      !config.plugins.github.config.github_token.startsWith('${') && (
                       <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
                         <p className="text-xs text-yellow-800">
-                          <strong>Security Warning:</strong> It looks like you've entered your token directly. 
-                          For security, use <code className="bg-yellow-100 px-1 rounded">${'{GITHUB_TOKEN}'}</code> and 
+                          <strong>Security Warning:</strong> It looks like you've entered your token directly.
+                          For security, use <code className="bg-yellow-100 px-1 rounded">${'{GITHUB_TOKEN}'}</code> and
                           set the token in your .env file instead.
                         </p>
                       </div>
@@ -434,7 +434,7 @@ const ConfigEditor: React.FC = () => {
               )}
             </div>
           </div>
-          
+
           {/* Global Settings */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <h3 className="text-lg font-semibold mb-4">Global Settings</h3>
@@ -455,7 +455,7 @@ const ConfigEditor: React.FC = () => {
                   max="4096"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Chunk Overlap
@@ -472,7 +472,7 @@ const ConfigEditor: React.FC = () => {
                   max="1024"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Batch Size
@@ -489,7 +489,7 @@ const ConfigEditor: React.FC = () => {
                   max="1000"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Sync Interval (hours)
@@ -506,7 +506,7 @@ const ConfigEditor: React.FC = () => {
                   max="168"
                 />
               </div>
-              
+
               <div className="md:col-span-2">
                 <label className="flex items-center space-x-2">
                   <input
@@ -530,7 +530,7 @@ const ConfigEditor: React.FC = () => {
         <div className="space-y-4">
           <div className="bg-gray-50 rounded-lg p-4">
             <p className="text-sm text-gray-600 mb-2">
-              Edit the configuration JSON below. This directly represents your rag_config.jsonc file.
+              Edit the configuration JSON below. This directly represents your rag_config.yaml file.
             </p>
             <textarea
               value={editedConfig}
@@ -541,7 +541,7 @@ const ConfigEditor: React.FC = () => {
           </div>
         </div>
       )}
-      
+
       {/* Save Button */}
       <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
         <button
@@ -562,4 +562,4 @@ const ConfigEditor: React.FC = () => {
   );
 };
 
-export default ConfigEditor; 
+export default ConfigEditor;

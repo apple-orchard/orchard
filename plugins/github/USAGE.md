@@ -11,29 +11,24 @@ export GITHUB_TOKEN=your_github_token_here
 
 ### 2. Configure a Repository
 
-Edit `rag_config.jsonc`:
-```jsonc
-{
-  "plugins": {
-    "github": {
-      "enabled": true,
-      "config": {
-        "repositories": [
-          {
-            "id": "my-repo",
-            "owner": "myusername",
-            "repo": "myproject",
-            "branch": "main",
-            "paths": ["src/"],
-            "exclude_patterns": ["*.test.js", "node_modules/"],
-            "sync_mode": "full"
-          }
-        ],
-        "github_token": "${GITHUB_TOKEN}"
-      }
-    }
-  }
-}
+Edit `rag_config.yaml`:
+```yaml
+plugins:
+  github:
+    enabled: true
+    config:
+      repositories:
+        - id: my-repo
+          owner: myusername
+          repo: myproject
+          branch: main
+          paths:
+            - src/
+          exclude_patterns:
+            - "*.test.js"
+            - node_modules/
+          sync_mode: full
+      github_token: ${GITHUB_TOKEN}
 ```
 
 ### 3. Start the Services
@@ -157,4 +152,4 @@ curl http://localhost:8011/api/plugins/github/jobs
 Set in your environment:
 ```bash
 export LOG_LEVEL=DEBUG
-``` 
+```
