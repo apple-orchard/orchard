@@ -13,6 +13,8 @@ services:
       - ./plugins:/app/plugins  # Mount plugins for development
       - ./main.py:/app/main.py  # Mount main.py for development
       - ./rag_config.jsonc:/app/rag_config.jsonc  # Mount config file
+      - ./cli:/app/cli  # Mount CLI for development
+      - ./orchard_cli.py:/app/orchard_cli.py  # Mount CLI entry point
     environment:
       - OLLAMA_HOST=http://host.docker.internal:11434
       - OLLAMA_MODEL=llama3.1:8b

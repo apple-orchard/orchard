@@ -14,6 +14,7 @@ A full-stack RAG (Retrieval-Augmented Generation) system with a Python backend a
 - **Local AI**: No external API dependencies - all processing runs locally
 - **Health Monitoring**: Built-in health checks and system testing
 - **Hot Reloading**: Development mode with automatic code reload
+- **Command Line Interface**: Comprehensive CLI for system management and plugin operations
 
 ### Frontend Features
 - **Modern Chat Interface**: TypeScript-based chat interface with Tailwind CSS
@@ -302,6 +303,109 @@ POST /models/pull
 
 Pulls a model from Ollama hub.
 
+## Command Line Interface (CLI)
+
+The Orchard RAG system includes a comprehensive CLI for managing the system, with a focus on plugin management and ingestion workflows.
+
+### CLI Setup
+
+The CLI is included in the project and can be used immediately:
+
+```bash
+# Make the CLI executable (first time only)
+chmod +x orchard
+
+# Test the CLI
+./orchard --help
+```
+
+### CLI Commands
+
+#### System Commands
+```bash
+# Check system health
+./orchard health
+
+# Show system information and data summary
+./orchard rag info
+
+# Test all system components
+./orchard rag test
+
+# Query the knowledge base
+./orchard rag query "What is RAG?"
+
+# Query with custom chunk limit
+./orchard rag query "How does authentication work?" --max-chunks 10
+```
+
+#### Plugin Management
+```bash
+# List all available plugins
+./orchard plugins list
+
+# Show detailed information about a plugin
+./orchard plugins info github
+
+# List sources for a plugin
+./orchard plugins sources github
+
+# Trigger ingestion for a plugin (interactive)
+./orchard plugins ingest github
+
+# Trigger ingestion for a specific source
+./orchard plugins ingest github --source-id my-repo
+
+# Perform incremental sync
+./orchard plugins ingest github --incremental
+
+# Monitor a job
+./orchard plugins monitor github <job-id>
+```
+
+#### Document Ingestion
+```bash
+# Ingest text content
+./orchard rag ingest-text "Your text content here"
+
+# Ingest a file
+./orchard rag ingest-file /path/to/document.pdf
+
+# List available models
+./orchard rag models
+
+# Pull a model from Ollama
+./orchard rag pull-model llama3.1:8b
+```
+
+### CLI Features
+
+- **Color-coded output**: ✅ success, ❌ error, ⚠️ warning, ℹ️ info
+- **Interactive prompts**: Source selection, confirmations
+- **Formatted tables**: Clean display of lists and data
+- **Progress monitoring**: Real-time job status updates
+- **Flexible API connection**: Use `--api-url` to connect to different endpoints
+
+### Example CLI Workflow
+
+```bash
+# 1. Check system health
+./orchard health
+
+# 2. View current data in the system
+./orchard rag info
+
+# 3. List available plugins
+./orchard plugins list
+
+# 4. Trigger GitHub repository ingestion
+./orchard plugins ingest github
+# The CLI will interactively ask you to select a source
+
+# 5. Query the ingested data
+./orchard rag query "What are the main features of this repository?"
+```
+
 ## Usage Examples
 
 ### Using the Web Interface
@@ -376,6 +480,13 @@ orchard/
 │   └── utils/
 │       ├── database.py      # ChromaDB utilities
 │       └── document_processor.py  # Document processing
+├── cli/                     # Command Line Interface
+│   ├── commands/            # CLI command modules
+│   │   ├── plugins.py       # Plugin management commands
+│   │   └── rag.py          # RAG system commands
+│   ├── helpers.py           # Helper utilities
+│   ├── main.py             # CLI entry point
+│   └── README.md           # CLI documentation
 ├── frontend/                # React frontend (TypeScript)
 │   ├── src/
 │   │   ├── components/      # React components (TypeScript)
@@ -391,6 +502,9 @@ orchard/
 │   ├── Dockerfile          # Production frontend Docker config
 │   └── Dockerfile.dev      # Development frontend Docker config
 ├── main.py                  # Backend entry point
+├── orchard                  # CLI wrapper script
+├── orchard_cli.py           # CLI entry point
+├── orchard_cli_standalone.py # Standalone CLI (no dependencies)
 ├── requirements.txt         # Python dependencies
 ├── docker-compose.yml      # Production Docker setup
 ├── docker-compose.dev.yml  # Development Docker setup
@@ -588,3 +702,6 @@ For issues and questions:
 - Document processing using [LangChain](https://langchain.com/)
 - Embeddings via [SentenceTransformers](https://www.sbert.net/)
 - Local AI responses from [Ollama](https://ollama.com/)
+
+
+
