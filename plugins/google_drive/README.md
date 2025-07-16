@@ -103,7 +103,7 @@ GOOGLE_SERVICE_ACCOUNT_FILE=/path/to/service-account-key.json
    - Authorize the Drive API scope: `https://www.googleapis.com/auth/drive.readonly`
    - Exchange authorization code for refresh token
 
-### Service Account Setup
+### Service Account Setup (probably easiest)
 
 1. **Create Service Account**
    - In Google Cloud Console, go to IAM & Admin > Service Accounts
