@@ -5,6 +5,9 @@ import uuid
 import os
 from sentence_transformers import SentenceTransformer
 from app.core.config import settings
+import app.core.logging
+
+logger = app.core.logging.logger.getChild('utils.database')
 
 class ChromaDBManager:
     def __init__(self):
@@ -32,10 +35,10 @@ class ChromaDBManager:
                     metadata={"hnsw:space": "cosine"}
                 )
 
-            print(f"ChromaDB initialized successfully at {settings.chroma_db_path}")
+            logger.info(f"ChromaDB initialized successfully at {settings.chroma_db_path}")
 
         except Exception as e:
-            print(f"Error initializing ChromaDB: {e}")
+            logger.error(f"Error initializing ChromaDB: {e}")
             raise
 
     def add_documents(self, chunks: List[str], metadatas: List[Dict[str, Any]]) -> List[str]:

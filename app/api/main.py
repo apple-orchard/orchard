@@ -6,9 +6,6 @@ from typing import Optional
 import tempfile
 import os
 from datetime import datetime
-import logging
-logger = logging.getLogger(__name__)
-import logging
 from fastapi.exception_handlers import http_exception_handler
 from app.core.config import settings
 from app.models.schemas import (
@@ -19,6 +16,7 @@ from app.services.rag_service import rag_service
 from app.services.plugin_service import plugin_service
 from app.api.plugins import router as plugins_router
 import json
+from app.core.logging import logger
 
 # Create FastAPI app
 app = FastAPI(
@@ -53,7 +51,7 @@ async def global_exception_handler(request, exc: HTTPException):
 async def startup_event():
     """Initialize services on startup."""
     plugin_service.initialize()
-    print("Plugin service initialized")
+    logger.info("Plugin service initialized")
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
@@ -315,7 +313,3 @@ async def file_not_found_handler(request, exc):
         status_code=404,
         content={"detail": str(exc)}
     )
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8011)
