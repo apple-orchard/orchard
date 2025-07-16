@@ -230,6 +230,8 @@ async def ingest_batch_messages(request: BatchIngestRequest):
             errors.append(f"Message at index {idx} missing 'text' field.")
             continue
         # Merge message fields into metadata for traceability
+        if request.metadata is not None and not isinstance(request.metadata, dict):
+            raise HTTPException(status_code=400, detail="Invalid type for metadata. Expected a dictionary.")
         metadata = dict(request.metadata) if request.metadata else {}
         metadata.update({k: v for k, v in msg.items() if k != "text"})
         result = rag_service.ingest_text(text, metadata)
