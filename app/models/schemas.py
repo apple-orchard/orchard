@@ -22,8 +22,12 @@ class IngestResponse(BaseModel):
     chunks_created: int
 
 # New models for batch ingestion
+class Message(BaseModel):
+    text: str
+    metadata: Optional[Dict[str, Any]] = None
+
 class BatchIngestRequest(BaseModel):
-    messages: list[dict]
+    messages: List[Message]
     metadata: Optional[Dict[str, Any]] = None
 
 class BatchIngestResponse(BaseModel):
