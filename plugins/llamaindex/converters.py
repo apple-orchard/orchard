@@ -47,10 +47,16 @@ def convert_llama_doc_to_chunks(
         combined_metadata = {
             **source_metadata,
             **doc_metadata,
-            "source_type": "llamaindex",
+            "source_type": source_metadata.get("source", "llamaindex"),
             "char_count": len(text),
             "word_count": len(text.split())
         }
+        
+        # If source_id is provided, create a properly formatted source string
+        if "source_id" in source_metadata:
+            plugin_source = source_metadata.get("source", "unknown")
+            source_id = source_metadata.get("source_id", "unknown")
+            combined_metadata["source"] = f"{plugin_source}:{source_id}"
         
         # Split text into chunks
         chunks = text_splitter.split_text(text)
