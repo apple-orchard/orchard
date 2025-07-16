@@ -49,6 +49,5 @@ chroma_db/
 
 # IDE
 .idea/
-.vscode/
 *.swp
 *.swo
