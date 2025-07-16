@@ -2,6 +2,7 @@ from typing import List, Dict, Any, Optional, Generator
 from app.utils.database import chroma_db
 from app.services.llm_service import llm_service
 from app.utils.document_processor import document_processor
+from app.utils.document_processor import serialize_metadata
 from app.core.config import settings
 
 class RAGService:
@@ -90,7 +91,7 @@ class RAGService:
             
             # Extract content and metadata for ChromaDB
             chunk_contents = [chunk["content"] for chunk in chunks]
-            chunk_metadatas = [chunk["metadata"] for chunk in chunks]
+            chunk_metadatas = [serialize_metadata(chunk["metadata"]) for chunk in chunks]
             
             # Add to ChromaDB
             chunk_ids = self.chroma_db.add_documents(chunk_contents, chunk_metadatas)
@@ -117,7 +118,7 @@ class RAGService:
             
             # Extract content and metadata for ChromaDB
             chunk_contents = [chunk["content"] for chunk in chunks]
-            chunk_metadatas = [chunk["metadata"] for chunk in chunks]
+            chunk_metadatas = [serialize_metadata(chunk["metadata"]) for chunk in chunks]
             
             # Add to ChromaDB
             chunk_ids = self.chroma_db.add_documents(chunk_contents, chunk_metadatas)
@@ -154,7 +155,7 @@ class RAGService:
             
             # Extract content and metadata for ChromaDB
             chunk_contents = [chunk["content"] for chunk in all_chunks]
-            chunk_metadatas = [chunk["metadata"] for chunk in all_chunks]
+            chunk_metadatas = [serialize_metadata(chunk["metadata"]) for chunk in all_chunks]
             
             # Add to ChromaDB
             chunk_ids = self.chroma_db.add_documents(chunk_contents, chunk_metadatas)

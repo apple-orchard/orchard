@@ -10,7 +10,7 @@ from fastapi.exception_handlers import http_exception_handler
 from app.core.config import settings
 from app.models.schemas import (
     QueryRequest, QueryResponse, IngestRequest, IngestResponse,
-    HealthResponse
+    HealthResponse, BatchIngestRequest, BatchIngestResponse
 )
 from app.services.rag_service import rag_service
 from app.services.plugin_service import plugin_service
@@ -215,6 +215,35 @@ async def ingest_document(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.post("/ingest/batch", response_model=BatchIngestResponse)
+async def ingest_batch_messages(request: BatchIngestRequest):
+    """
+    Endpoint to ingest a batch of messages (e.g., Slack messages) into the knowledge base.
+    Each message should be a dict with at least a 'text' field.
+    """
+    total_chunks = 0
+    errors = []
+    for idx, msg in enumerate(request.messages):
+        text = msg.get("text")
+        if not text:
+            errors.append(f"Message at index {idx} missing 'text' field.")
+            continue
+        # Merge message fields into metadata for traceability
+        metadata = dict(request.metadata) if request.metadata else {}
+        metadata.update({k: v for k, v in msg.items() if k != "text"})
+        result = rag_service.ingest_text(text, metadata)
+        if result.get("success"):
+            total_chunks += result.get("chunks_created", 0)
+        else:
+            errors.append(f"Error ingesting message at index {idx}: {result.get('message')}")
+    success = len(errors) == 0
+    message = "Batch ingestion completed successfully." if success else f"Completed with errors: {'; '.join(errors)}"
+    return BatchIngestResponse(
+        success=success,
+        message=message,
+        total_chunks_created=total_chunks
+    )
 
 @app.get("/knowledge-base/info")
 async def get_knowledge_base_info():

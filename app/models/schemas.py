@@ -20,6 +20,16 @@ class IngestResponse(BaseModel):
     success: bool
     message: str
     chunks_created: int
+
+# New models for batch ingestion
+class BatchIngestRequest(BaseModel):
+    messages: list[dict]
+    metadata: Optional[Dict[str, Any]] = None
+
+class BatchIngestResponse(BaseModel):
+    success: bool
+    message: str
+    total_chunks_created: int
     
 class DocumentChunk(BaseModel):
     id: str

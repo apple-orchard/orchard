@@ -6,6 +6,7 @@ import PyPDF2
 import docx
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from app.core.config import settings
+import json
 
 class DocumentProcessor:
     def __init__(self):
@@ -144,6 +145,18 @@ class DocumentProcessor:
         # Remove special characters (optional)
         text = re.sub(r'[^\w\s\.\,\!\?\;]', '', text)
         return text.strip()
+
+def serialize_metadata(metadata: dict) -> dict:
+    """Ensure all metadata values are primitive types, serializing dicts/lists to JSON strings."""
+    if not isinstance(metadata, dict):
+        return metadata
+    result = {}
+    for k, v in metadata.items():
+        if isinstance(v, (str, int, float, bool)) or v is None:
+            result[k] = v
+        else:
+            result[k] = json.dumps(v)
+    return result
 
 # Global document processor instance
 document_processor = DocumentProcessor() 
