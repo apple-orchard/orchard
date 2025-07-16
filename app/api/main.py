@@ -222,30 +222,42 @@ async def ingest_batch_messages(request: BatchIngestRequest):
     Endpoint to ingest a batch of messages (e.g., Slack messages) into the knowledge base.
     Each message should be a dict with at least a 'text' field.
     """
-    total_chunks = 0
-    errors = []
-    for idx, msg in enumerate(request.messages):
-        text = msg.get("text")
-        if not text:
-            errors.append(f"Message at index {idx} missing 'text' field.")
-            continue
-        # Merge message fields into metadata for traceability
-        if request.metadata is not None and not isinstance(request.metadata, dict):
-            raise HTTPException(status_code=400, detail="Invalid type for metadata. Expected a dictionary.")
-        metadata = dict(request.metadata) if request.metadata else {}
-        metadata.update({k: v for k, v in msg.items() if k != "text"})
-        result = rag_service.ingest_text(text, metadata)
-        if result.get("success"):
-            total_chunks += result.get("chunks_created", 0)
-        else:
-            errors.append(f"Error ingesting message at index {idx}: {result.get('message')}")
-    success = len(errors) == 0
-    message = "Batch ingestion completed successfully." if success else f"Completed with errors: {'; '.join(errors)}"
-    return BatchIngestResponse(
-        success=success,
-        message=message,
-        total_chunks_created=total_chunks
-    )
+    try:
+        total_chunks = 0
+        errors = []
+        for idx, msg in enumerate(request.messages):
+            text = msg.text
+            if not text:
+                errors.append(f"Message at index {idx} missing 'text' field.")
+                continue
+            # Merge message metadata and request metadata for traceability
+            if request.metadata is not None and not isinstance(request.metadata, dict):
+                raise HTTPException(status_code=400, detail="Invalid type for metadata. Expected a dictionary.")
+            metadata = dict(request.metadata) if request.metadata else {}
+            if msg.metadata:
+                if not isinstance(msg.metadata, dict):
+                    raise HTTPException(status_code=400, detail=f"Invalid type for message metadata at index {idx}. Expected a dictionary.")
+                metadata.update(msg.metadata)
+            result = rag_service.ingest_text(text, metadata)
+            if result.get("success"):
+                total_chunks += result.get("chunks_created", 0)
+            else:
+                errors.append(f"Error ingesting message at index {idx}: {result.get('message')}")
+        success = len(errors) == 0
+        message = "Batch ingestion completed successfully." if success else f"Completed with errors: {'; '.join(errors)}"
+        return BatchIngestResponse(
+            success=success,
+            message=message,
+            total_chunks_created=total_chunks
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        return BatchIngestResponse(
+            success=False,
+            message=f"Internal server error: {str(e)}",
+            total_chunks_created=0
+        )
 
 @app.get("/knowledge-base/info")
 async def get_knowledge_base_info():
