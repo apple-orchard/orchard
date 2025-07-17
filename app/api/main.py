@@ -280,30 +280,34 @@ async def ingest_document(
 @app.post("/ingest/batch", response_model=BatchIngestResponse)
 async def ingest_batch_messages(request: BatchIngestRequest):
     """
-    Endpoint to ingest a batch of messages (e.g., Slack messages) into the knowledge base.
-    Each message should be a dict with at least a 'text' field.
+    Endpoint to ingest a batch of documents (e.g., Slack messages, threads, files) into the knowledge base.
+    Each document should follow the new schema.
     """
     try:
         total_chunks = 0
         errors = []
-        for idx, msg in enumerate(request.messages):
-            text = msg.text
+        for idx, doc in enumerate(request.documents):
+            # Extract text content
+            text = doc.content.text
             if not text:
-                errors.append(f"Message at index {idx} missing 'text' field.")
+                errors.append(f"Document at index {idx} missing 'content.text' field.")
                 continue
-            # Merge message metadata and request metadata for traceability
-            if request.metadata is not None and not isinstance(request.metadata, dict):
-                raise HTTPException(status_code=400, detail="Invalid type for metadata. Expected a dictionary.")
-            metadata = dict(request.metadata) if request.metadata else {}
-            if msg.metadata:
-                if not isinstance(msg.metadata, dict):
-                    raise HTTPException(status_code=400, detail=f"Invalid type for message metadata at index {idx}. Expected a dictionary.")
-                metadata.update(msg.metadata)
+            # Merge all relevant metadata for traceability
+            metadata = {
+                "batch_id": request.batch_id,
+                "batch_number": request.batch_metadata.batch_number,
+                "is_final_batch": request.batch_metadata.is_final_batch,
+                "document_id": doc.document_id,
+                "document_type": doc.document_type,
+                "channel": doc.channel.dict(),
+                "content": doc.content.dict(),
+                **doc.metadata.dict(),
+            }
             result = rag_service.ingest_text(text, metadata)
             if result.get("success"):
                 total_chunks += result.get("chunks_created", 0)
             else:
-                errors.append(f"Error ingesting message at index {idx}: {result.get('message')}")
+                errors.append(f"Error ingesting document at index {idx}: {result.get('message')}")
         success = len(errors) == 0
         message = "Batch ingestion completed successfully." if success else f"Completed with errors: {'; '.join(errors)}"
         return BatchIngestResponse(
