@@ -63,11 +63,11 @@ const App: React.FC = () => {
           </div>
         </div>
       </header>
-      
+
       {activeView === 'chat' ? (
         <main className="flex-1 flex flex-col md:flex-row gap-4 md:gap-5 p-4 md:p-5 max-w-6xl mx-auto w-full">
           <div className="order-2 md:order-1 flex-1 bg-white rounded-lg shadow-lg overflow-hidden flex flex-col min-h-[500px] md:min-h-[600px]">
-            <ChatBox 
+            <ChatBox
               messages={messages}
               onAddMessage={addMessage}
               onUpdateMessage={updateMessage}
@@ -76,7 +76,7 @@ const App: React.FC = () => {
               setIsLoading={setIsLoading}
             />
           </div>
-          
+
           <div className="order-1 md:order-2 w-full md:w-80 bg-white rounded-lg shadow-lg p-4 md:p-5 h-fit">
             <DocumentUpload onUploadComplete={handleUploadComplete} />
           </div>
@@ -86,24 +86,8 @@ const App: React.FC = () => {
           <PluginDashboard />
         </main>
       )}
-      <main className="flex-1 flex flex-col md:flex-row gap-4 md:gap-5 p-4 md:p-5 max-w-6xl mx-auto w-full">
-        <div className="order-2 md:order-1 flex-1 bg-white rounded-lg shadow-lg overflow-hidden flex flex-col min-h-[500px] md:min-h-[600px]">
-          <ChatBox 
-            messages={messages}
-            onAddMessage={addMessage}
-            onUpdateMessage={updateMessage}
-            onClearMessages={clearMessages}
-            isLoading={isLoading}
-            setIsLoading={setIsLoading}
-          />
-        </div>
-        
-        <div className="order-1 md:order-2 w-full md:w-80 bg-white rounded-lg shadow-lg p-4 md:p-5 h-fit">
-          <DocumentUpload onUploadComplete={handleUploadComplete} />
-        </div>
-      </main>
     </div>
   );
 };
 
-export default App; 
+export default App;

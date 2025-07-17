@@ -21,9 +21,9 @@ class Settings(BaseSettings):
     # - "sentence-t5-base": Good for semantic search (220MB)
     embedding_model: str = "all-mpnet-base-v2"
 
-    # Text Processing Configuration
-    chunk_size: int = 1000
-    chunk_overlap: int = 200
+    # Text Processing Configuration - Optimized for semantic understanding
+    chunk_size: int = 1500  # Larger chunks for better topic coherence
+    chunk_overlap: int = 300  # More overlap to preserve context across chunks
 
     # LLM Configuration
     max_tokens: int = 500

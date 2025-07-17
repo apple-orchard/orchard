@@ -21,9 +21,13 @@ def get_embedding_model() -> HuggingFaceEmbedding:
         # Default is 'all-mpnet-base-v2' which provides better semantic understanding
         model_name = getattr(settings, 'embedding_model_name', f'sentence-transformers/{settings.embedding_model}')
 
+        # Use environment cache folder if available
+        import os
+        cache_folder = os.environ.get('SENTENCE_TRANSFORMERS_HOME', getattr(settings, 'model_cache_dir', None))
+
         _embedding_model = HuggingFaceEmbedding(
             model_name=model_name,
-            cache_folder=getattr(settings, 'model_cache_dir', None),
+            cache_folder=cache_folder,
             device='cpu'  # Can be changed to 'cuda' if GPU is available
         )
 

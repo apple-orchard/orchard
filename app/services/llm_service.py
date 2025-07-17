@@ -29,7 +29,7 @@ class LLMService:
 
                             When responding:
                             - Use a clear, concise, and human tone.
-                            - Do not mention anything about chunks or sources, unless you know a url or external name of the source. Chunks are not helpful.
+                            - Do not respond with anything about chunks or sources, unless you know a url or external name of the source. Chunks are not helpful. Include a URL instead.
                             - Summarize related background when helpful, especially for newer team members.
                             - When a question touches on a decision or topic discussed in the past, reference who discussed it, what was decided, and when.
                             - If you’re unsure or the answer isn’t in the data, say so clearly and suggest where or how it might be found (e.g., “You might want to check with Sarah from Product, this didn’t come up in prior docs or Slack.”).

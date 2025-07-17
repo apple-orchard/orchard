@@ -128,20 +128,20 @@ async def query_documents(request: QueryRequest, http_request: Request):
                     }
                 )
 
-        # Handle regular RAG queries
-        result = rag_service.query(
-            question=request.question,
-            max_chunks=request.max_chunks
-        )
+        # # Handle regular RAG queries
+        # result = rag_service.query(
+        #     question=request.question,
+        #     max_chunks=request.max_chunks
+        # )
 
-        return QueryResponse(
-            answer=result["answer"],
-            sources=result["sources"],
-            metadata={
-                **result["metadata"],
-                "intent": "rag_query"
-            }
-        )
+        # return QueryResponse(
+        #     answer=result["answer"],
+        #     sources=result["sources"],
+        #     metadata={
+        #         **result["metadata"],
+        #         "intent": "rag_query"
+        #     }
+        # )
 
 
         # Get the Accept header
@@ -162,6 +162,17 @@ async def query_documents(request: QueryRequest, http_request: Request):
                 if "answer" in chunk:
                     final_answer = chunk["answer"]
             return PlainTextResponse(content=final_answer)
+
+        if "text/stream+plain" in accept_header:
+            async def generate_stream():
+                for chunk in stream:
+                    yield chunk["answer"]
+
+            return StreamingResponse(
+                generate_stream(),
+                media_type="text/stream+plain",
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
+            )
 
         # Handle application/stream+json response
         elif "application/stream+json" in accept_header:

@@ -1884,7 +1884,7 @@ dependencies = [
 requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.12.3" },
     { name = "chromadb", specifier = ">=1.0.15" },
-    { name = "debugpy", specifier = ">=1.8.0" },
+    { name = "debugpy", specifier = ">=1.8.15" },
     { name = "fastapi", specifier = ">=0.116.1" },
     { name = "gitpython", specifier = ">=3.1.43" },
     { name = "jsonschema", specifier = ">=4.23.0" },
