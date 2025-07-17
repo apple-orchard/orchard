@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import ChatBox from './components/ChatBox';
 import DocumentUpload from './components/DocumentUpload';
 import PluginDashboard from './components/PluginDashboard';
+import JobManager from './components/JobManager';
 import { Message, FileUploadResponse } from './types';
 
 const App: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [activeView, setActiveView] = useState<'chat' | 'plugins'>('chat');
+  const [activeView, setActiveView] = useState<'chat' | 'plugins' | 'jobs'>('chat');
 
   const addMessage = (message: Message): void => {
     setMessages(prev => [...prev, message]);
@@ -59,6 +60,16 @@ const App: React.FC = () => {
               >
                 Plugins
               </button>
+              <button
+                onClick={() => setActiveView('jobs')}
+                className={`px-4 py-2 rounded-md transition-colors ${
+                  activeView === 'jobs'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                Jobs
+              </button>
             </nav>
           </div>
         </div>
@@ -81,9 +92,15 @@ const App: React.FC = () => {
             <DocumentUpload onUploadComplete={handleUploadComplete} />
           </div>
         </main>
-      ) : (
+      ) : activeView === 'plugins' ? (
         <main className="flex-1 min-h-0">
           <PluginDashboard />
+        </main>
+      ) : (
+        <main className="flex-1 min-h-0 overflow-y-auto">
+          <div className="max-w-6xl mx-auto p-4 md:p-5">
+            <JobManager />
+          </div>
         </main>
       )}
     </div>

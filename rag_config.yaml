@@ -1,10 +1,30 @@
-version: '1.0'
+version: "1.0"
 plugins:
   github:
-    enabled: false
+    enabled: true
     config:
-      repositories: []
-      github_token: ${GITHUB_TOKEN}
+      repositories:
+        - id: orchard-rag
+          owner: apple-orchard
+          repo: orchard
+          branch: main
+          paths: []
+          exclude_patterns:
+            - "*.pyc"
+            - "__pycache__/"
+            - "*.test.py"
+          sync_mode: full
+        - id: water-123
+          owner: kognise
+          repo: water.css
+          branch: master
+          paths: []
+          exclude_patterns:
+            - "*.pyc"
+            - "__pycache__/"
+            - "*.test.py"
+          sync_mode: full
+      github_token: "${GITHUB_TOKEN}"
   website:
     enabled: false
     config:
@@ -14,8 +34,8 @@ plugins:
         respect_robots_txt: true
         user_agent: OrchardRAG/1.0
 global_settings:
-  chunk_size: 1024
-  chunk_overlap: 200
+  chunk_size: 1500
+  chunk_overlap: 300
   batch_size: 100
   auto_sync: false
   sync_interval_hours: 24
