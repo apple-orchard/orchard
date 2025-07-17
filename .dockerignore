@@ -10,7 +10,7 @@ __pycache__
 .Python
 env
 pip-log.txt
-.venv
+**/.venv
 .env
 
 # Documentation
@@ -55,4 +55,4 @@ htmlcov/
 # Build artifacts
 dist/
 build/
-*.egg-info/ 
+*.egg-info/

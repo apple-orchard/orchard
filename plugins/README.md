@@ -131,6 +131,47 @@ plugins:
       github_token: "${GITHUB_TOKEN}"
 ```
 
+## Plugin Directory Structure (with Isolated Dependencies)
+
+Each plugin should live in its own subdirectory under `plugins/` and can have its own dependencies and virtual environment. Example structure:
+
+```
+plugins/
+  my_plugin/
+    main.py                # Plugin entrypoint
+    requirements.txt       # Plugin-specific dependencies
+    .venv/                 # Virtual environment for this plugin (created by user or setup script)
+    ...                   # Other plugin files
+  streaming_echo/
+    streaming_echo_plugin.py
+    requirements.txt
+    .venv/
+    ...
+```
+
+### Setup Steps for a New Plugin
+1. **Create a new folder in `plugins/`**
+2. **Add your plugin code (e.g., `main.py` or `streaming_*.py`)**
+3. **Add a `requirements.txt` or `pyproject.toml` for dependencies**
+4. **Create a virtual environment and install dependencies using uv:**
+   ```bash
+   cd plugins/my_plugin
+   uv venv .venv
+   source .venv/bin/activate
+   uv pip install -r requirements.txt
+   ```
+   Or if using `pyproject.toml`:
+   ```bash
+   cd plugins/my_plugin
+   uv venv .venv
+   source .venv/bin/activate
+   uv pip install .
+   ```
+5. **The main process will launch the plugin using its `.venv/bin/python` interpreter.**
+
+- Each plugin is fully isolated and can use conflicting or specialized dependencies.
+- Communication with the main process is via stdin/stdout (streaming or message-based protocols).
+
 ## Contributing
 
 When contributing a new plugin:

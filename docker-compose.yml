@@ -1,6 +1,6 @@
 services:
   api:
-    build: 
+    build:
       context: .
       target: production
     container_name: orchard-api
@@ -13,7 +13,7 @@ services:
       - OLLAMA_HOST=http://host.docker.internal:11434
       - OLLAMA_MODEL=llama3.1:8b
       - CHROMA_DB_PATH=/app/chroma_db
-      - EMBEDDING_MODEL=all-MiniLM-L6-v2
+      - EMBEDDING_MODEL=all-mpnet-base-v2
       - CHUNK_SIZE=1000
       - CHUNK_OVERLAP=200
       - MAX_TOKENS=500

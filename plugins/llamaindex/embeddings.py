@@ -10,27 +10,27 @@ _embedding_model: Optional[HuggingFaceEmbedding] = None
 
 def get_embedding_model() -> HuggingFaceEmbedding:
     """Get or create the embedding model compatible with existing setup.
-    
+
     Returns:
         HuggingFaceEmbedding instance
     """
     global _embedding_model
-    
+
     if _embedding_model is None:
         # Use the same model as the existing setup
-        # Default is 'all-MiniLM-L6-v2' which matches sentence-transformers
-        model_name = getattr(settings, 'embedding_model_name', 'sentence-transformers/all-MiniLM-L6-v2')
-        
+        # Default is 'all-mpnet-base-v2' which provides better semantic understanding
+        model_name = getattr(settings, 'embedding_model_name', f'sentence-transformers/{settings.embedding_model}')
+
         _embedding_model = HuggingFaceEmbedding(
             model_name=model_name,
             cache_folder=getattr(settings, 'model_cache_dir', None),
             device='cpu'  # Can be changed to 'cuda' if GPU is available
         )
-    
+
     return _embedding_model
 
 
 def reset_embedding_model() -> None:
     """Reset the embedding model (useful for testing)."""
     global _embedding_model
-    _embedding_model = None 
+    _embedding_model = None

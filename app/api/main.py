@@ -17,6 +17,9 @@ from app.models.schemas import (
 from app.services.rag_service import rag_service
 from app.services.plugin_service import plugin_service
 from app.api.plugins import router as plugins_router
+from app.services.intent_detection import intent_service, Intent
+from app.services.streaming_plugin_handler import StreamingPluginHandler
+from io import StringIO
 
 # Create FastAPI app
 app = FastAPI(
@@ -68,14 +71,58 @@ async def query_documents(request: QueryRequest):
     Query the knowledge base with a question.
 
     This endpoint accepts a question and returns an AI-generated answer
-    based on relevant documents in the knowledge base.
+    based on relevant documents in the knowledge base. It also handles
+    special intents like echo requests.
     """
-
     try:
         if not request.question.strip():
             raise HTTPException(status_code=400, detail="Question cannot be empty")
 
-        # Process the query using RAG service
+        # Detect intent from the query
+        intent_result = intent_service.detect_intent(request.question)
+
+        # Handle echo intent with streaming plugin
+        if intent_result["intent"] == Intent.ECHO:
+            text_to_echo = intent_result["extracted_data"]["text_to_echo"]
+
+            # Use streaming echo plugin
+            handler = StreamingPluginHandler("streaming_echo")
+            input_stream = StringIO(text_to_echo)
+            output_stream = StringIO()
+
+            header = {
+                "type": "text",
+                "action": "echo",
+                "timestamp": str(datetime.now())
+            }
+
+            try:
+                handler.stream(header, input_stream, output_stream)
+                echoed_text = output_stream.getvalue()
+
+                return QueryResponse(
+                    answer=f"Echo: {echoed_text}",
+                    sources=[],
+                    metadata={
+                        "intent": "echo",
+                        "plugin_used": "streaming_echo",
+                        "original_query": request.question
+                    }
+                )
+            except Exception as e:
+                logger.exception("Error running streaming echo plugin")
+                # Fallback to simple echo
+                return QueryResponse(
+                    answer=f"Echo (fallback): {text_to_echo}",
+                    sources=[],
+                    metadata={
+                        "intent": "echo",
+                        "plugin_used": "fallback",
+                        "error": str(e)
+                    }
+                )
+
+        # Handle regular RAG queries
         result = rag_service.query(
             question=request.question,
             max_chunks=request.max_chunks
@@ -84,12 +131,17 @@ async def query_documents(request: QueryRequest):
         return QueryResponse(
             answer=result["answer"],
             sources=result["sources"],
-            metadata=result["metadata"]
+            metadata={
+                **result["metadata"],
+                "intent": "rag_query"
+            }
         )
 
     except ValueError as e:
+        logger.exception("ValueError in query processing")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.exception("Exception in query processing")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.post("/ingest", response_model=IngestResponse)
