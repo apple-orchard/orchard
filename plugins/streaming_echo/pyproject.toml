@@ -1,0 +1,13 @@
+[project]
+name = "streaming-echo-plugin"
+version = "0.1.0"
+description = "A streaming echo plugin for Orchard RAG"
+dependencies = [
+    # Add plugin-specific dependencies here
+    # Example: "requests>=2.25.0"
+    "chatterbox-tts>=0.1.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

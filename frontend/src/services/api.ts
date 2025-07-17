@@ -54,11 +54,11 @@ export const ragAPI: APIService = {
         body: JSON.stringify({ question, max_chunks: maxChunks }),
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'text/plain',
+          'Accept': 'text/stream+plain',
         },
       });
       if (!res.ok) throw new Error(res.statusText);
-      
+
       const reader  = res.body!.getReader();
       const decoder = new TextDecoder();
       let done = false;
@@ -172,6 +172,9 @@ export const pluginAPI = {
         {
           source_id: sourceId,
           full_sync: fullSync,
+        },
+        {
+          timeout: 600000,
         }
       );
       return response.data;
@@ -274,4 +277,4 @@ export const apiUtils = {
   },
 };
 
-export default api; 
+export default api;

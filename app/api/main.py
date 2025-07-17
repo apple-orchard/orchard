@@ -15,6 +15,9 @@ from app.models.schemas import (
 from app.services.rag_service import rag_service
 from app.services.plugin_service import plugin_service
 from app.api.plugins import router as plugins_router
+from app.services.intent_detection import intent_service, Intent
+from app.services.streaming_plugin_handler import StreamingPluginHandler
+from io import StringIO
 import json
 from app.core.logging import logger
 
@@ -68,27 +71,72 @@ async def query_documents(request: QueryRequest, http_request: Request):
     Query the knowledge base with a question.
 
     This endpoint accepts a question and returns an AI-generated answer
+    based on relevant documents in the knowledge base. It also handles
+    special intents like echo requests.
     based on relevant documents in the knowledge base.
-    
+
     Supports different response formats based on Accept header:
     - text/plain: Returns just the answer as plain text
     - application/stream+json: Returns streaming JSON response
     - application/json: Returns complete JSON response with sources and metadata
     """
-
     try:
         if not request.question.strip():
             raise HTTPException(status_code=400, detail="Question cannot be empty")
-        
+
+        # Detect intent from the query
+        intent_result = intent_service.detect_intent(request.question)
+
+        # Handle echo intent with streaming plugin
+        if intent_result["intent"] == Intent.ECHO:
+            text_to_echo = intent_result["extracted_data"]["text_to_echo"]
+
+            # Use streaming echo plugin
+            handler = StreamingPluginHandler("streaming_echo")
+            input_stream = StringIO(text_to_echo)
+            output_stream = StringIO()
+
+            header = {
+                "type": "text",
+                "action": "echo",
+                "timestamp": str(datetime.now())
+            }
+
+            try:
+                handler.stream(header, input_stream, output_stream)
+                echoed_text = output_stream.getvalue()
+
+                return QueryResponse(
+                    answer=f"Echo: {echoed_text}",
+                    sources=[],
+                    metadata={
+                        "intent": "echo",
+                        "plugin_used": "streaming_echo",
+                        "original_query": request.question
+                    }
+                )
+            except Exception as e:
+                logger.exception("Error running streaming echo plugin")
+                # Fallback to simple echo
+                return QueryResponse(
+                    answer=f"Echo (fallback): {text_to_echo}",
+                    sources=[],
+                    metadata={
+                        "intent": "echo",
+                        "plugin_used": "fallback",
+                        "error": str(e)
+                    }
+                )
+
         # Get the Accept header
         accept_header = http_request.headers.get("accept", "application/json")
-        
+
         # Process the query using RAG service
         stream = rag_service.query(
             question=request.question,
             max_chunks=request.max_chunks
         )
-        
+
         # Handle text/plain response
         if "text/plain" in accept_header:
             final_answer = ""
@@ -98,7 +146,18 @@ async def query_documents(request: QueryRequest, http_request: Request):
                 if "answer" in chunk:
                     final_answer = chunk["answer"]
             return PlainTextResponse(content=final_answer)
-        
+
+        if "text/stream+plain" in accept_header:
+            async def generate_stream():
+                for chunk in stream:
+                    yield chunk["answer"]
+
+            return StreamingResponse(
+                generate_stream(),
+                media_type="text/stream+plain",
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
+            )
+
         # Handle application/stream+json response
         elif "application/stream+json" in accept_header:
             async def generate_stream():
@@ -107,20 +166,20 @@ async def query_documents(request: QueryRequest, http_request: Request):
                         yield f"data: {json.dumps({'done': True})}\n\n"
                     else:
                         yield f"data: {json.dumps(chunk)}\n\n"
-            
+
             return StreamingResponse(
                 generate_stream(),
                 media_type="application/stream+json",
                 headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
             )
-        
+
         # Handle application/json response (default)
         else:
             # Consume all chunks from the generator to get the complete response
             final_answer = ""
             sources = None
             metadata = None
-            
+
             for chunk in stream:
                 if "done" in chunk:
                     break
@@ -130,16 +189,18 @@ async def query_documents(request: QueryRequest, http_request: Request):
                     sources = chunk["sources"]
                 if "usage" in chunk and metadata is None:
                     metadata = chunk.get("usage", {})
-            
+
             return QueryResponse(
                 answer=final_answer,
                 sources=sources,
                 metadata=metadata
             )
-        
+
     except ValueError as e:
+        logger.exception("ValueError in query processing")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.exception("Exception in query processing")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.post("/ingest", response_model=IngestResponse)

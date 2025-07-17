@@ -44,6 +44,9 @@ node_modules/
 # ChromaDB
 chroma_db/
 
+# Model Cache
+model_cache/
+
 # Plugin configuration
 .github_cache/
 

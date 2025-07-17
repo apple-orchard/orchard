@@ -1,4 +1,4 @@
-FROM python:3.13-slim AS base
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS base
 
 # Set working directory
 WORKDIR /app
@@ -9,16 +9,14 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-
 ENV PATH="/root/.local/bin/:$PATH"
 
 # Copy requirements first (for better layer caching)
-COPY pyproject.toml .
+COPY pyproject.toml uv.lock .
 
 # Install Python dependencies
-RUN uv sync
+RUN uv venv .venv
+RUN uv sync --locked
 
 # Copy startup script
 COPY entrypoint.sh /app/entrypoint.sh
@@ -31,6 +29,9 @@ FROM base AS development
 
 # Copy application code
 COPY . .
+
+# Set up all plugin virtual environments
+RUN python plugins/plugin_setup.py build
 
 # Create directory for ChromaDB data
 RUN mkdir -p /app/chroma_db
@@ -49,6 +50,9 @@ FROM base AS production
 # Copy application code
 COPY . .
 
+# Set up all plugin virtual environments
+RUN python plugins/plugin_setup.py build
+
 # Create directory for ChromaDB data
 RUN mkdir -p /app/chroma_db
 
@@ -62,3 +66,6 @@ ENV CHROMA_DB_PATH=/app/chroma_db
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8011/health || exit 1
+
+# Run the application
+ENV PATH="/app/.venv/bin:$PATH"

@@ -1,6 +1,6 @@
 services:
   api:
-    build: 
+    build:
       context: .
       target: production
     container_name: orchard-api
@@ -9,16 +9,21 @@ services:
     volumes:
       - ./chroma_db:/app/chroma_db
       - ./documents:/app/documents  # Mount for document ingestion
+      - ./model_cache:/app/model_cache  # Mount pre-downloaded models
     environment:
       - OLLAMA_HOST=http://host.docker.internal:11434
       - OLLAMA_MODEL=llama3.1:8b
       - CHROMA_DB_PATH=/app/chroma_db
-      - EMBEDDING_MODEL=all-MiniLM-L6-v2
-      - CHUNK_SIZE=1000
-      - CHUNK_OVERLAP=200
+      - EMBEDDING_MODEL=all-mpnet-base-v2
+      - CHUNK_SIZE=1500
+      - CHUNK_OVERLAP=300
       - MAX_TOKENS=500
       - TEMPERATURE=0.7
       - MAX_RETRIEVED_CHUNKS=5
+      # Model cache configuration for pre-downloaded models
+      - TRANSFORMERS_CACHE=/app/model_cache
+      - SENTENCE_TRANSFORMERS_HOME=/app/model_cache
+      - HF_HOME=/app/model_cache
     env_file:
       - .env
     restart: unless-stopped

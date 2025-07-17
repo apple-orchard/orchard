@@ -34,8 +34,8 @@ plugins:
         respect_robots_txt: true
         user_agent: OrchardRAG/1.0
 global_settings:
-  chunk_size: 1024
-  chunk_overlap: 200
+  chunk_size: 1500
+  chunk_overlap: 300
   batch_size: 100
   auto_sync: false
   sync_interval_hours: 24
