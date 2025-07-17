@@ -4,17 +4,28 @@ from app.services.llm_service import llm_service
 from app.utils.document_processor import document_processor
 from app.core.config import settings
 
+from atomic_agents.lib.components.agent_memory import AgentMemory
+from atomic_agents.agents.base_agent import BaseAgentInputSchema
+
 class RAGService:
     def __init__(self):
         self.chroma_db = chroma_db
         self.llm_service = llm_service
         self.document_processor = document_processor
+        self.memory = AgentMemory(max_messages=100)
     
     def query(self, question: str, max_chunks: Optional[int] = None) -> Generator[Dict[str, Any], None, None]:
         """Process a question using RAG workflow"""
         if not question.strip():
             raise ValueError("Question cannot be empty")
+
+        user_message = BaseAgentInputSchema(chat_message=question)
+        self.memory.add_message(role="user", content=user_message)
+
+        history = self.memory.get_history()
         
+        mem_chunks = [m["content"] for m in history]
+
         # Use default max_chunks if not specified
         if max_chunks is None:
             max_chunks = settings.max_retrieved_chunks
@@ -37,11 +48,13 @@ class RAGService:
                     }
                 }
                 return
+
+            all_context = mem_chunks + retrieval_results["documents"]
             
             # Step 2: Generate answer using LLM
             llm_response = self.llm_service.generate_answer(
                 question=question,
-                context_chunks=retrieval_results["documents"],
+                context_chunks=all_context,
                 metadata_list=retrieval_results["metadatas"]
             )
             
@@ -62,6 +75,9 @@ class RAGService:
                     model = chunk["model"]
                 if "usage" in chunk and usage is None:
                     usage = chunk["usage"]
+            
+            assistant_message = BaseAgentInputSchema(chat_message=final_answer)
+            self.memory.add_message(role="assistant", content=assistant_message)
             
             # Step 4: Combine results
             response = {
