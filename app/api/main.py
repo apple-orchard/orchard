@@ -128,22 +128,6 @@ async def query_documents(request: QueryRequest, http_request: Request):
                     }
                 )
 
-        # # Handle regular RAG queries
-        # result = rag_service.query(
-        #     question=request.question,
-        #     max_chunks=request.max_chunks
-        # )
-
-        # return QueryResponse(
-        #     answer=result["answer"],
-        #     sources=result["sources"],
-        #     metadata={
-        #         **result["metadata"],
-        #         "intent": "rag_query"
-        #     }
-        # )
-
-
         # Get the Accept header
         accept_header = http_request.headers.get("accept", "application/json")
 
