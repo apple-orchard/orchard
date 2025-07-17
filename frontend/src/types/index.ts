@@ -141,6 +141,7 @@ export interface GitHubRepository {
 export interface ChatBoxProps {
   messages: Message[];
   onAddMessage: (message: Message) => void;
+  onUpdateMessage: (message: Message) => void;
   onClearMessages: () => void;
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
@@ -168,7 +169,7 @@ export interface DocumentUploadProps {
 
 // API Service types
 export interface APIService {
-  query: (message: string) => Promise<RAGQueryResponse>;
+  query: (message: string) => AsyncGenerator<string>;
   uploadFile: (file: File, metadata: FileUploadMetadata) => Promise<FileUploadResponse>;
 }
 

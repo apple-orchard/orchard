@@ -6,6 +6,7 @@ services:
     container_name: orchard-api-dev
     ports:
       - "8011:8011"
+      - "5678:5678"  # Debugger port
     volumes:
       - ./chroma_db:/app/chroma_db
       - ./documents:/app/documents
@@ -25,6 +26,8 @@ services:
       - MAX_TOKENS=500
       - TEMPERATURE=0.7
       - MAX_RETRIEVED_CHUNKS=5
+      - DEBUG_MODE=${DEBUG_MODE:-false}
+      - PYDEVD_DISABLE_FILE_VALIDATION=1 # Disable debugpy warning for frozen standard library modules
     env_file:
       - .env
     restart: unless-stopped

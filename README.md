@@ -80,9 +80,6 @@ The application will be available at:
 
 ```bash
 # Quick production start
-./start.sh
-
-# Or using dev.sh
 ./dev.sh prod
 ```
 
@@ -188,7 +185,7 @@ cp env.example .env
 
 ```bash
 # Quick production start
-./start.sh
+./dev.sh prod
 
 # Or manually
 docker-compose up -d
@@ -414,7 +411,7 @@ chmod +x orchard
    ```bash
    ./dev.sh dev  # Development mode
    # OR
-   ./start.sh    # Production mode
+   ./dev.sh prod # Production mode
    ```
 
 2. **Open your browser** and go to `http://localhost:3000`
@@ -505,11 +502,9 @@ orchard/
 ├── orchard                  # CLI wrapper script
 ├── orchard_cli.py           # CLI entry point
 ├── orchard_cli_standalone.py # Standalone CLI (no dependencies)
-├── requirements.txt         # Python dependencies
 ├── docker-compose.yml      # Production Docker setup
 ├── docker-compose.dev.yml  # Development Docker setup
 ├── dev.sh                  # Development workflow script
-├── start.sh                # Production startup script
 ├── setup_ollama.py         # Ollama setup script
 └── README.md               # This file
 ```
@@ -519,6 +514,10 @@ orchard/
 1. **Start development environment:**
    ```bash
    ./dev.sh dev
+   ```
+   (with debugging)
+   ```bash
+   ./dev.sh dev --debug
    ```
 
 2. **Make changes to code:**

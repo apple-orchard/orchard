@@ -21,6 +21,12 @@ COPY pyproject.toml uv.lock .
 RUN uv venv .venv
 RUN uv sync --locked
 
+# Copy startup script
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+ENTRYPOINT ["/app/entrypoint.sh"]
+
 # Development stage
 FROM base AS development
 
@@ -33,15 +39,13 @@ RUN python plugins/plugin_setup.py build
 # Create directory for ChromaDB data
 RUN mkdir -p /app/chroma_db
 
-# Expose port
+# Expose port for application and debugger
 EXPOSE 8011
+EXPOSE 5678
 
 # Set environment variables
 ENV PYTHONPATH=/app
 ENV CHROMA_DB_PATH=/app/chroma_db
-
-# Run with hot reload for development
-CMD ["uv", "run", "uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8011", "--reload"]
 
 # Production stage
 FROM base AS production

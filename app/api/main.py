@@ -1,14 +1,12 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
+from fastapi.responses import JSONResponse, StreamingResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exception_handlers import http_exception_handler
 from typing import Optional
 import tempfile
 import os
 from datetime import datetime
-import logging
-logger = logging.getLogger(__name__)
-
+from fastapi.exception_handlers import http_exception_handler
 from app.core.config import settings
 from app.models.schemas import (
     QueryRequest, QueryResponse, IngestRequest, IngestResponse,
@@ -20,6 +18,8 @@ from app.api.plugins import router as plugins_router
 from app.services.intent_detection import intent_service, Intent
 from app.services.streaming_plugin_handler import StreamingPluginHandler
 from io import StringIO
+import json
+from app.core.logging import logger
 
 # Create FastAPI app
 app = FastAPI(
@@ -54,7 +54,7 @@ async def global_exception_handler(request, exc: HTTPException):
 async def startup_event():
     """Initialize services on startup."""
     plugin_service.initialize()
-    print("Plugin service initialized")
+    logger.info("Plugin service initialized")
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
@@ -65,14 +65,20 @@ async def health_check():
         version=settings.api_version
     )
 
-@app.post("/query", response_model=QueryResponse)
-async def query_documents(request: QueryRequest):
+@app.post("/query")
+async def query_documents(request: QueryRequest, http_request: Request):
     """
     Query the knowledge base with a question.
 
     This endpoint accepts a question and returns an AI-generated answer
     based on relevant documents in the knowledge base. It also handles
     special intents like echo requests.
+    based on relevant documents in the knowledge base.
+
+    Supports different response formats based on Accept header:
+    - text/plain: Returns just the answer as plain text
+    - application/stream+json: Returns streaming JSON response
+    - application/json: Returns complete JSON response with sources and metadata
     """
     try:
         if not request.question.strip():
@@ -136,6 +142,64 @@ async def query_documents(request: QueryRequest):
                 "intent": "rag_query"
             }
         )
+
+
+        # Get the Accept header
+        accept_header = http_request.headers.get("accept", "application/json")
+
+        # Process the query using RAG service
+        stream = rag_service.query(
+            question=request.question,
+            max_chunks=request.max_chunks
+        )
+
+        # Handle text/plain response
+        if "text/plain" in accept_header:
+            final_answer = ""
+            for chunk in stream:
+                if "done" in chunk:
+                    break
+                if "answer" in chunk:
+                    final_answer = chunk["answer"]
+            return PlainTextResponse(content=final_answer)
+
+        # Handle application/stream+json response
+        elif "application/stream+json" in accept_header:
+            async def generate_stream():
+                for chunk in stream:
+                    if "done" in chunk:
+                        yield f"data: {json.dumps({'done': True})}\n\n"
+                    else:
+                        yield f"data: {json.dumps(chunk)}\n\n"
+
+            return StreamingResponse(
+                generate_stream(),
+                media_type="application/stream+json",
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
+            )
+
+        # Handle application/json response (default)
+        else:
+            # Consume all chunks from the generator to get the complete response
+            final_answer = ""
+            sources = None
+            metadata = None
+
+            for chunk in stream:
+                if "done" in chunk:
+                    break
+                if "answer" in chunk:
+                    final_answer = chunk["answer"]
+                if "sources" in chunk and sources is None:
+                    sources = chunk["sources"]
+                if "usage" in chunk and metadata is None:
+                    metadata = chunk.get("usage", {})
+
+            return QueryResponse(
+                answer=final_answer,
+                sources=sources,
+                metadata=metadata
+            )
 
     except ValueError as e:
         logger.exception("ValueError in query processing")
@@ -315,7 +379,3 @@ async def file_not_found_handler(request, exc):
         status_code=404,
         content={"detail": str(exc)}
     )
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8011)
