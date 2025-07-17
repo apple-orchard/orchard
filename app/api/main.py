@@ -10,13 +10,15 @@ from fastapi.exception_handlers import http_exception_handler
 from app.core.config import settings
 from app.models.schemas import (
     QueryRequest, QueryResponse, IngestRequest, IngestResponse,
-    HealthResponse, BatchIngestRequest, BatchIngestResponse
+    HealthResponse, BatchIngestRequest, BatchIngestResponse,
+    AsyncJobResponse, JobStatusResponse, JobListResponse, JobStatsResponse
 )
 from app.services.rag_service import rag_service
 from app.services.plugin_service import plugin_service
 from app.api.plugins import router as plugins_router
 from app.services.intent_detection import intent_service, Intent
 from app.services.streaming_plugin_handler import StreamingPluginHandler
+from app.services.ingestion_jobs import job_manager, start_background_cleanup
 from io import StringIO
 import json
 from app.core.logging import logger
@@ -49,12 +51,16 @@ async def global_exception_handler(request, exc: HTTPException):
 
     return await http_exception_handler(request, exc)
 
-# Initialize plugin service on startup
+# Initialize services on startup
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup."""
     plugin_service.initialize()
     logger.info("Plugin service initialized")
+
+    # Start background job cleanup
+    start_background_cleanup()
+    logger.info("Background job cleanup initialized")
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
@@ -203,15 +209,16 @@ async def query_documents(request: QueryRequest, http_request: Request):
         logger.exception("Exception in query processing")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@app.post("/ingest", response_model=IngestResponse)
+@app.post("/ingest", response_model=AsyncJobResponse)
 async def ingest_document(
     file: Optional[UploadFile] = File(None),
     text_content: Optional[str] = Form(None),
     file_path: Optional[str] = Form(None),
-    metadata: Optional[str] = Form(None)
+    metadata: Optional[str] = Form(None),
+    sync: bool = Form(False)
 ):
     """
-    Ingest a document into the knowledge base.
+    Ingest a document into the knowledge base (async by default).
 
     You can provide either:
     - A file upload
@@ -219,6 +226,7 @@ async def ingest_document(
     - A file path (for server-side files)
 
     Optional metadata can be provided as a JSON string.
+    Set sync=true for synchronous processing (blocks until complete).
     """
     try:
         # Parse metadata if provided
@@ -230,6 +238,54 @@ async def ingest_document(
             except json.JSONDecodeError:
                 raise HTTPException(status_code=400, detail="Invalid JSON in metadata field")
 
+        # Handle synchronous mode for backwards compatibility
+        if sync:
+            # Process file upload
+            if file:
+                # Save uploaded file temporarily
+                with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{file.filename}") as tmp_file:
+                    content = await file.read()
+                    tmp_file.write(content)
+                    tmp_file_path = tmp_file.name
+
+                try:
+                    # Process the uploaded file
+                    result = rag_service.ingest_file(tmp_file_path, additional_metadata)
+                finally:
+                    # Clean up temporary file
+                    os.unlink(tmp_file_path)
+
+            # Process text content
+            elif text_content:
+                result = rag_service.ingest_text(text_content, additional_metadata)
+
+            # Process file path
+            elif file_path:
+                if not os.path.exists(file_path):
+                    raise HTTPException(status_code=400, detail=f"File not found: {file_path}")
+
+                # Check if it's a directory
+                if os.path.isdir(file_path):
+                    result = rag_service.ingest_directory(file_path, True, additional_metadata)
+                else:
+                    result = rag_service.ingest_file(file_path, additional_metadata)
+
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Must provide either file upload, text_content, or file_path"
+                )
+
+            # Return sync response format wrapped in AsyncJobResponse for consistency
+            return AsyncJobResponse(
+                job_id="sync",
+                job_type="sync_ingestion",
+                status="completed",
+                created_at=datetime.now().isoformat(),
+                message=f"{result['message']} (sync mode - {result['chunks_created']} chunks created)"
+            )
+
+        # Default async mode
         # Process file upload
         if file:
             # Save uploaded file temporarily
@@ -239,15 +295,16 @@ async def ingest_document(
                 tmp_file_path = tmp_file.name
 
             try:
-                # Process the uploaded file
-                result = rag_service.ingest_file(tmp_file_path, additional_metadata)
+                # Start async file processing
+                job_id = rag_service.ingest_file_async(tmp_file_path, additional_metadata)
             finally:
-                # Clean up temporary file
-                os.unlink(tmp_file_path)
+                # Note: We don't delete the temp file here since the async job needs it
+                # The job will handle cleanup
+                pass
 
         # Process text content
         elif text_content:
-            result = rag_service.ingest_text(text_content, additional_metadata)
+            job_id = rag_service.ingest_text_async(text_content, additional_metadata)
 
         # Process file path
         elif file_path:
@@ -256,9 +313,9 @@ async def ingest_document(
 
             # Check if it's a directory
             if os.path.isdir(file_path):
-                result = rag_service.ingest_directory(file_path, True, additional_metadata)
+                job_id = rag_service.ingest_directory_async(file_path, True, additional_metadata)
             else:
-                result = rag_service.ingest_file(file_path, additional_metadata)
+                job_id = rag_service.ingest_file_async(file_path, additional_metadata)
 
         else:
             raise HTTPException(
@@ -266,10 +323,17 @@ async def ingest_document(
                 detail="Must provide either file upload, text_content, or file_path"
             )
 
-        return IngestResponse(
-            success=result["success"],
-            message=result["message"],
-            chunks_created=result["chunks_created"]
+        # Get job info to return
+        job = job_manager.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=500, detail="Failed to create job")
+
+        return AsyncJobResponse(
+            job_id=job.job_id,
+            job_type=job.job_type.value,
+            status=job.status.value,
+            created_at=job.created_at.isoformat(),
+            message=job.message
         )
 
     except HTTPException:
@@ -277,48 +341,72 @@ async def ingest_document(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@app.post("/ingest/batch", response_model=BatchIngestResponse)
-async def ingest_batch_messages(request: BatchIngestRequest):
+@app.post("/ingest/batch", response_model=AsyncJobResponse)
+async def ingest_batch_messages(request: BatchIngestRequest, sync: bool = False):
     """
-    Endpoint to ingest a batch of messages (e.g., Slack messages) into the knowledge base.
+    Ingest a batch of messages (async by default).
+
     Each message should be a dict with at least a 'text' field.
+    Set sync=true for synchronous processing (blocks until complete).
     """
     try:
-        total_chunks = 0
-        errors = []
-        for idx, msg in enumerate(request.messages):
-            text = msg.text
-            if not text:
-                errors.append(f"Message at index {idx} missing 'text' field.")
-                continue
-            # Merge message metadata and request metadata for traceability
-            if request.metadata is not None and not isinstance(request.metadata, dict):
-                raise HTTPException(status_code=400, detail="Invalid type for metadata. Expected a dictionary.")
-            metadata = dict(request.metadata) if request.metadata else {}
-            if msg.metadata:
-                if not isinstance(msg.metadata, dict):
-                    raise HTTPException(status_code=400, detail=f"Invalid type for message metadata at index {idx}. Expected a dictionary.")
-                metadata.update(msg.metadata)
-            result = rag_service.ingest_text(text, metadata)
-            if result.get("success"):
-                total_chunks += result.get("chunks_created", 0)
-            else:
-                errors.append(f"Error ingesting message at index {idx}: {result.get('message')}")
-        success = len(errors) == 0
-        message = "Batch ingestion completed successfully." if success else f"Completed with errors: {'; '.join(errors)}"
-        return BatchIngestResponse(
-            success=success,
-            message=message,
-            total_chunks_created=total_chunks
+        # Handle synchronous mode for backwards compatibility
+        if sync:
+            total_chunks = 0
+            errors = []
+            for idx, msg in enumerate(request.messages):
+                text = msg.text
+                if not text:
+                    errors.append(f"Message at index {idx} missing 'text' field.")
+                    continue
+                # Merge message metadata and request metadata for traceability
+                if request.metadata is not None and not isinstance(request.metadata, dict):
+                    raise HTTPException(status_code=400, detail="Invalid type for metadata. Expected a dictionary.")
+                metadata = dict(request.metadata) if request.metadata else {}
+                if msg.metadata:
+                    if not isinstance(msg.metadata, dict):
+                        raise HTTPException(status_code=400, detail=f"Invalid type for message metadata at index {idx}. Expected a dictionary.")
+                    metadata.update(msg.metadata)
+                result = rag_service.ingest_text(text, metadata)
+                if result.get("success"):
+                    total_chunks += result.get("chunks_created", 0)
+                else:
+                    errors.append(f"Error ingesting message at index {idx}: {result.get('message')}")
+
+            success = len(errors) == 0
+            message = "Batch ingestion completed successfully." if success else f"Completed with errors: {'; '.join(errors)}"
+
+            # Return sync response wrapped in AsyncJobResponse for consistency
+            return AsyncJobResponse(
+                job_id="sync",
+                job_type="sync_batch_ingestion",
+                status="completed",
+                created_at=datetime.now().isoformat(),
+                message=f"{message} (sync mode - {total_chunks} chunks created)"
+            )
+
+        # Default async mode
+        # Convert pydantic models to dicts
+        messages_dict = [{"text": msg.text, "metadata": msg.metadata} for msg in request.messages]
+
+        job_id = rag_service.ingest_batch_async(messages_dict, request.metadata)
+
+        job = job_manager.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=500, detail="Failed to create job")
+
+        return AsyncJobResponse(
+            job_id=job.job_id,
+            job_type=job.job_type.value,
+            status=job.status.value,
+            created_at=job.created_at.isoformat(),
+            message=job.message
         )
+
     except HTTPException:
         raise
     except Exception as e:
-        return BatchIngestResponse(
-            success=False,
-            message=f"Internal server error: {str(e)}",
-            total_chunks_created=0
-        )
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/knowledge-base/info")
 async def get_knowledge_base_info():
@@ -402,6 +490,192 @@ async def ingest_file_simple(request: IngestRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+# Async ingestion endpoints
+
+@app.post("/ingest/async", response_model=AsyncJobResponse)
+async def ingest_document_async(
+    file: Optional[UploadFile] = File(None),
+    text_content: Optional[str] = Form(None),
+    file_path: Optional[str] = Form(None),
+    metadata: Optional[str] = Form(None)
+):
+    """
+    Start an async document ingestion job.
+
+    Returns immediately with a job ID that can be used to track progress.
+    You can provide either:
+    - A file upload
+    - Raw text content
+    - A file path (for server-side files)
+    """
+    try:
+        # Parse metadata if provided
+        additional_metadata = {}
+        if metadata:
+            import json
+            try:
+                additional_metadata = json.loads(metadata)
+            except json.JSONDecodeError:
+                raise HTTPException(status_code=400, detail="Invalid JSON in metadata field")
+
+        # Process file upload
+        if file:
+            # Save uploaded file temporarily
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{file.filename}") as tmp_file:
+                content = await file.read()
+                tmp_file.write(content)
+                tmp_file_path = tmp_file.name
+
+            try:
+                # Start async file processing
+                job_id = rag_service.ingest_file_async(tmp_file_path, additional_metadata)
+            finally:
+                # Note: We don't delete the temp file here since the async job needs it
+                # The job will handle cleanup
+                pass
+
+        # Process text content
+        elif text_content:
+            job_id = rag_service.ingest_text_async(text_content, additional_metadata)
+
+        # Process file path
+        elif file_path:
+            if not os.path.exists(file_path):
+                raise HTTPException(status_code=400, detail=f"File not found: {file_path}")
+
+            # Check if it's a directory
+            if os.path.isdir(file_path):
+                job_id = rag_service.ingest_directory_async(file_path, True, additional_metadata)
+            else:
+                job_id = rag_service.ingest_file_async(file_path, additional_metadata)
+
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Must provide either file upload, text_content, or file_path"
+            )
+
+        # Get job info to return
+        job = job_manager.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=500, detail="Failed to create job")
+
+        return AsyncJobResponse(
+            job_id=job.job_id,
+            job_type=job.job_type.value,
+            status=job.status.value,
+            created_at=job.created_at.isoformat(),
+            message=job.message
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.post("/ingest/text/async", response_model=AsyncJobResponse)
+async def ingest_text_async_simple(request: IngestRequest):
+    """Start an async text ingestion job."""
+    try:
+        if not request.text_content:
+            raise HTTPException(status_code=400, detail="text_content is required")
+
+        job_id = rag_service.ingest_text_async(request.text_content, request.metadata)
+
+        job = job_manager.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=500, detail="Failed to create job")
+
+        return AsyncJobResponse(
+            job_id=job.job_id,
+            job_type=job.job_type.value,
+            status=job.status.value,
+            created_at=job.created_at.isoformat(),
+            message=job.message
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.post("/ingest/batch/async", response_model=AsyncJobResponse)
+async def ingest_batch_async(request: BatchIngestRequest):
+    """Start an async batch ingestion job."""
+    try:
+        # Convert pydantic models to dicts
+        messages_dict = [{"text": msg.text, "metadata": msg.metadata} for msg in request.messages]
+
+        job_id = rag_service.ingest_batch_async(messages_dict, request.metadata)
+
+        job = job_manager.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=500, detail="Failed to create job")
+
+        return AsyncJobResponse(
+            job_id=job.job_id,
+            job_type=job.job_type.value,
+            status=job.status.value,
+            created_at=job.created_at.isoformat(),
+            message=job.message
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+# Job management endpoints
+
+@app.get("/jobs/{job_id}", response_model=JobStatusResponse)
+async def get_job_status(job_id: str):
+    """Get the status of an ingestion job."""
+    job = job_manager.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+    job_dict = job.to_dict()
+    return JobStatusResponse(**job_dict)
+
+@app.get("/jobs", response_model=JobListResponse)
+async def list_jobs(status: Optional[str] = None, limit: int = 50):
+    """List ingestion jobs, optionally filtered by status."""
+    from app.services.ingestion_jobs import JobStatus
+
+    status_filter = None
+    if status:
+        try:
+            status_filter = JobStatus(status)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+
+    jobs = job_manager.list_jobs(status_filter)
+
+    # Apply limit
+    jobs = jobs[:limit]
+
+    job_responses = [JobStatusResponse(**job.to_dict()) for job in jobs]
+
+    return JobListResponse(
+        jobs=job_responses,
+        total_count=len(jobs)
+    )
+
+@app.delete("/jobs/{job_id}")
+async def cancel_job(job_id: str):
+    """Cancel a pending job."""
+    success = job_manager.cancel_job(job_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Job cannot be cancelled (not found or not pending)")
+
+    return {"message": f"Job {job_id} cancelled successfully"}
+
+@app.get("/jobs/stats", response_model=JobStatsResponse)
+async def get_job_stats():
+    """Get job statistics."""
+    stats = job_manager.get_stats()
+    return JobStatsResponse(**stats)
 
 # Error handlers
 @app.exception_handler(ValueError)
