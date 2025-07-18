@@ -71,12 +71,34 @@ cleanup() {
 
 # Function to start development environment
 start_dev() {
+    local debug_mode="false"
+    
+    # Parse debug flag
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --debug)
+                debug_mode="true"
+                shift
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+    
     print_status "Starting development environment..."
+    
+    if [ "$debug_mode" = "true" ]; then
+        print_status "Debug mode enabled - server will wait for debugger to attach on port 5678"
+    fi
     
     check_docker
     check_ollama
     setup_env
     cleanup
+    
+    # Set debug mode environment variable
+    export DEBUG_MODE="$debug_mode"
     
     # Build and start development containers
     print_status "Building and starting containers..."
@@ -86,6 +108,13 @@ start_dev() {
     print_status "Frontend: http://localhost:3000"
     print_status "Backend API: http://localhost:8011"
     print_status "API Documentation: http://localhost:8011/docs"
+    
+    if [ "$debug_mode" = "true" ]; then
+        print_status "🐛 Debug mode is enabled!"
+        print_status "   - Server is waiting for debugger to attach on port 5678"
+        print_status "   - Use VSCode 'Python Debugger: Attach to Docker' configuration"
+        print_status "   - Or connect any debugger to localhost:5678"
+    fi
     
     print_status "Showing logs... (Press Ctrl+C to stop viewing logs)"
     docker-compose -f docker-compose.dev.yml logs -f
@@ -143,14 +172,14 @@ rebuild() {
     docker-compose -f docker-compose.dev.yml down --rmi all 2>/dev/null || true
     docker-compose down --rmi all 2>/dev/null || true
     
-    start_dev
+    start_dev "$@"
 }
 
 # Function to show help
 show_help() {
     echo "Orchard RAG System Development Helper"
     echo ""
-    echo "Usage: $0 [COMMAND]"
+    echo "Usage: $0 [COMMAND] [OPTIONS]"
     echo ""
     echo "Commands:"
     echo "  dev     Start development environment with hot reloading"
@@ -161,10 +190,15 @@ show_help() {
     echo "  cleanup Clean up processes and containers"
     echo "  help    Show this help message"
     echo ""
+    echo "Options for 'dev' and 'rebuild' commands:"
+    echo "  --debug Enable debug mode (server waits for debugger to attach on port 5678)"
+    echo ""
     echo "Examples:"
-    echo "  $0 dev      # Start development environment"
-    echo "  $0 rebuild  # Rebuild and restart development"
-    echo "  $0 stop     # Stop all containers"
+    echo "  $0 dev               # Start development environment"
+    echo "  $0 dev --debug       # Start development environment with debugging enabled"
+    echo "  $0 rebuild           # Rebuild and restart development"
+    echo "  $0 rebuild --debug   # Rebuild and restart development with debugging enabled"
+    echo "  $0 stop              # Stop all containers"
     echo ""
     echo "Prerequisites:"
     echo "  • Docker and Docker Compose installed"
@@ -175,7 +209,8 @@ show_help() {
 # Main script logic
 case "${1:-help}" in
     dev|development)
-        start_dev
+        shift
+        start_dev "$@"
         ;;
     prod|production)
         start_prod
@@ -187,7 +222,8 @@ case "${1:-help}" in
         logs
         ;;
     rebuild)
-        rebuild
+        shift
+        rebuild "$@"
         ;;
     cleanup)
         cleanup

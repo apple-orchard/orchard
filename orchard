@@ -11,7 +11,7 @@ if ! curl -s http://localhost:8011/health > /dev/null 2>&1; then
     echo -e "${RED}Error: Orchard API is not accessible on http://localhost:8011${NC}"
     echo "Please start the services first with:"
     echo "  ./dev.sh dev    # For development"
-    echo "  ./start.sh      # For production"
+    echo "  ./dev.sh prod   # For production"
     exit 1
 fi
 

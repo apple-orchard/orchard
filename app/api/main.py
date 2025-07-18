@@ -1,22 +1,25 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
+from fastapi.responses import JSONResponse, StreamingResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exception_handlers import http_exception_handler
 from typing import Optional
 import tempfile
 import os
 from datetime import datetime
-import logging
-logger = logging.getLogger(__name__)
-
+from fastapi.exception_handlers import http_exception_handler
 from app.core.config import settings
 from app.models.schemas import (
     QueryRequest, QueryResponse, IngestRequest, IngestResponse,
-    HealthResponse
+    HealthResponse, BatchIngestRequest, BatchIngestResponse
 )
 from app.services.rag_service import rag_service
 from app.services.plugin_service import plugin_service
 from app.api.plugins import router as plugins_router
+from app.services.intent_detection import intent_service, Intent
+from app.services.streaming_plugin_handler import StreamingPluginHandler
+from io import StringIO
+import json
+from app.core.logging import logger
 
 # Create FastAPI app
 app = FastAPI(
@@ -51,7 +54,7 @@ async def global_exception_handler(request, exc: HTTPException):
 async def startup_event():
     """Initialize services on startup."""
     plugin_service.initialize()
-    print("Plugin service initialized")
+    logger.info("Plugin service initialized")
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
@@ -62,34 +65,142 @@ async def health_check():
         version=settings.api_version
     )
 
-@app.post("/query", response_model=QueryResponse)
-async def query_documents(request: QueryRequest):
+@app.post("/query")
+async def query_documents(request: QueryRequest, http_request: Request):
     """
     Query the knowledge base with a question.
 
     This endpoint accepts a question and returns an AI-generated answer
+    based on relevant documents in the knowledge base. It also handles
+    special intents like echo requests.
     based on relevant documents in the knowledge base.
-    """
 
+    Supports different response formats based on Accept header:
+    - text/plain: Returns just the answer as plain text
+    - application/stream+json: Returns streaming JSON response
+    - application/json: Returns complete JSON response with sources and metadata
+    """
     try:
         if not request.question.strip():
             raise HTTPException(status_code=400, detail="Question cannot be empty")
 
+        # Detect intent from the query
+        intent_result = intent_service.detect_intent(request.question)
+
+        # Handle echo intent with streaming plugin
+        if intent_result["intent"] == Intent.ECHO:
+            text_to_echo = intent_result["extracted_data"]["text_to_echo"]
+
+            # Use streaming echo plugin
+            handler = StreamingPluginHandler("streaming_echo")
+            input_stream = StringIO(text_to_echo)
+            output_stream = StringIO()
+
+            header = {
+                "type": "text",
+                "action": "echo",
+                "timestamp": str(datetime.now())
+            }
+
+            try:
+                handler.stream(header, input_stream, output_stream)
+                echoed_text = output_stream.getvalue()
+
+                return QueryResponse(
+                    answer=f"Echo: {echoed_text}",
+                    sources=[],
+                    metadata={
+                        "intent": "echo",
+                        "plugin_used": "streaming_echo",
+                        "original_query": request.question
+                    }
+                )
+            except Exception as e:
+                logger.exception("Error running streaming echo plugin")
+                # Fallback to simple echo
+                return QueryResponse(
+                    answer=f"Echo (fallback): {text_to_echo}",
+                    sources=[],
+                    metadata={
+                        "intent": "echo",
+                        "plugin_used": "fallback",
+                        "error": str(e)
+                    }
+                )
+
+        # Get the Accept header
+        accept_header = http_request.headers.get("accept", "application/json")
+
         # Process the query using RAG service
-        result = rag_service.query(
+        stream = rag_service.query(
             question=request.question,
             max_chunks=request.max_chunks
         )
 
-        return QueryResponse(
-            answer=result["answer"],
-            sources=result["sources"],
-            metadata=result["metadata"]
-        )
+        # Handle text/plain response
+        if "text/plain" in accept_header:
+            final_answer = ""
+            for chunk in stream:
+                if "done" in chunk:
+                    break
+                if "answer" in chunk:
+                    final_answer = chunk["answer"]
+            return PlainTextResponse(content=final_answer)
+
+        if "text/stream+plain" in accept_header:
+            async def generate_stream():
+                for chunk in stream:
+                    yield chunk["answer"]
+
+            return StreamingResponse(
+                generate_stream(),
+                media_type="text/stream+plain",
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
+            )
+
+        # Handle application/stream+json response
+        elif "application/stream+json" in accept_header:
+            async def generate_stream():
+                for chunk in stream:
+                    if "done" in chunk:
+                        yield f"data: {json.dumps({'done': True})}\n\n"
+                    else:
+                        yield f"data: {json.dumps(chunk)}\n\n"
+
+            return StreamingResponse(
+                generate_stream(),
+                media_type="application/stream+json",
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
+            )
+
+        # Handle application/json response (default)
+        else:
+            # Consume all chunks from the generator to get the complete response
+            final_answer = ""
+            sources = None
+            metadata = None
+
+            for chunk in stream:
+                if "done" in chunk:
+                    break
+                if "answer" in chunk:
+                    final_answer = chunk["answer"]
+                if "sources" in chunk and sources is None:
+                    sources = chunk["sources"]
+                if "usage" in chunk and metadata is None:
+                    metadata = chunk.get("usage", {})
+
+            return QueryResponse(
+                answer=final_answer,
+                sources=sources,
+                metadata=metadata
+            )
 
     except ValueError as e:
+        logger.exception("ValueError in query processing")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.exception("Exception in query processing")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.post("/ingest", response_model=IngestResponse)
@@ -165,6 +276,49 @@ async def ingest_document(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.post("/ingest/batch", response_model=BatchIngestResponse)
+async def ingest_batch_messages(request: BatchIngestRequest):
+    """
+    Endpoint to ingest a batch of messages (e.g., Slack messages) into the knowledge base.
+    Each message should be a dict with at least a 'text' field.
+    """
+    try:
+        total_chunks = 0
+        errors = []
+        for idx, msg in enumerate(request.messages):
+            text = msg.text
+            if not text:
+                errors.append(f"Message at index {idx} missing 'text' field.")
+                continue
+            # Merge message metadata and request metadata for traceability
+            if request.metadata is not None and not isinstance(request.metadata, dict):
+                raise HTTPException(status_code=400, detail="Invalid type for metadata. Expected a dictionary.")
+            metadata = dict(request.metadata) if request.metadata else {}
+            if msg.metadata:
+                if not isinstance(msg.metadata, dict):
+                    raise HTTPException(status_code=400, detail=f"Invalid type for message metadata at index {idx}. Expected a dictionary.")
+                metadata.update(msg.metadata)
+            result = rag_service.ingest_text(text, metadata)
+            if result.get("success"):
+                total_chunks += result.get("chunks_created", 0)
+            else:
+                errors.append(f"Error ingesting message at index {idx}: {result.get('message')}")
+        success = len(errors) == 0
+        message = "Batch ingestion completed successfully." if success else f"Completed with errors: {'; '.join(errors)}"
+        return BatchIngestResponse(
+            success=success,
+            message=message,
+            total_chunks_created=total_chunks
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        return BatchIngestResponse(
+            success=False,
+            message=f"Internal server error: {str(e)}",
+            total_chunks_created=0
+        )
 
 @app.get("/knowledge-base/info")
 async def get_knowledge_base_info():
@@ -263,7 +417,3 @@ async def file_not_found_handler(request, exc):
         status_code=404,
         content={"detail": str(exc)}
     )
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8011)

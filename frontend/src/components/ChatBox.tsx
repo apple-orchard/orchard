@@ -7,6 +7,7 @@ import { ChatBoxProps, Message } from '../types';
 const ChatBox: React.FC<ChatBoxProps> = ({ 
   messages, 
   onAddMessage, 
+  onUpdateMessage,
   onClearMessages, 
   isLoading, 
   setIsLoading 
@@ -26,43 +27,63 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   const handleSendMessage = async (message: string): Promise<void> => {
     if (!message.trim()) return;
 
-    // Add user message
+    const ts = new Date();
+  
     const userMessage: Message = {
       type: 'user',
       content: message,
       timestamp: new Date(),
     };
     onAddMessage(userMessage);
-
+  
+    let answer = '';
+    const assistantMessage: Message = {
+      type: 'assistant',
+      content: '',
+      // sources: [],
+      // metadata: {
+      //   chunks_retrieved: 0,
+      //   model: '',
+      // },
+      timestamp: ts,
+      isLoading: true,
+    };
+    onAddMessage(assistantMessage);
+  
     setIsLoading(true);
-
+  
     try {
-      const response = await ragAPI.query(message);
-      
-      // Add assistant response
-      const assistantMessage: Message = {
-        type: 'assistant',
-        content: response.answer,
-        sources: response.sources,
-        metadata: response.metadata,
-        timestamp: new Date(),
+      for await (const chunk of ragAPI.query(message)) {
+        answer += chunk;
+        
+        onUpdateMessage({
+          ...assistantMessage,
+          content: answer,
+        });
+      }
+  
+      onUpdateMessage({
+        ...assistantMessage,
+        content: answer,
+        // sources: finalSources,
+        // metadata: finalMetadata,
         isLoading: false,
-      };
-
-      onAddMessage(assistantMessage);
-      
+        timestamp: ts,
+      });
+  
     } catch (error: any) {
-      const errorMessage: Message = {
+      onUpdateMessage({
         type: 'error',
         content: `Error: ${error.message}`,
-        timestamp: new Date(),
+        timestamp: ts,
         isLoading: false,
-      };
-      onAddMessage(errorMessage);
+      });
+  
     } finally {
       setIsLoading(false);
     }
   };
+  
 
   const handleInputChange = (value: string): void => {
     setInputValue(value);
@@ -164,18 +185,6 @@ const ChatBox: React.FC<ChatBoxProps> = ({
       
       <div className="flex-1 overflow-y-auto p-4 md:p-5 flex flex-col gap-4 custom-scrollbar">
         <MessageList messages={messages} />
-        {isLoading && (
-          <div className="flex self-start max-w-[80%] md:max-w-[90%] mb-4">
-            <div className="bg-gray-50 text-gray-800 rounded-2xl rounded-bl-sm px-4 py-3 border border-gray-200 shadow-sm flex items-center gap-2 text-sm">
-              <div className="flex gap-1">
-                <span className="w-1 h-1 rounded-full bg-gray-600 animate-pulse" style={{ animationDelay: '-0.32s' }}></span>
-                <span className="w-1 h-1 rounded-full bg-gray-600 animate-pulse" style={{ animationDelay: '-0.16s' }}></span>
-                <span className="w-1 h-1 rounded-full bg-gray-600 animate-pulse"></span>
-              </div>
-              Thinking...
-            </div>
-          </div>
-        )}
         <div ref={messagesEndRef} />
       </div>
       

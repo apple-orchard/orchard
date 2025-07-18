@@ -8,8 +8,8 @@ class QueryRequest(BaseModel):
     
 class QueryResponse(BaseModel):
     answer: str
-    sources: List[Dict[str, Any]]
-    metadata: Dict[str, Any]
+    sources: Optional[List[Dict[str, Any]]] = None
+    metadata: Optional[Dict[str, Any]] = None
 
 class IngestRequest(BaseModel):
     file_path: Optional[str] = None
@@ -20,6 +20,20 @@ class IngestResponse(BaseModel):
     success: bool
     message: str
     chunks_created: int
+
+# New models for batch ingestion
+class Message(BaseModel):
+    text: str
+    metadata: Optional[Dict[str, Any]] = None
+
+class BatchIngestRequest(BaseModel):
+    messages: List[Message]
+    metadata: Optional[Dict[str, Any]] = None
+
+class BatchIngestResponse(BaseModel):
+    success: bool
+    message: str
+    total_chunks_created: int
     
 class DocumentChunk(BaseModel):
     id: str

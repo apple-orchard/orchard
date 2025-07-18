@@ -1,20 +1,32 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Generator
 from app.utils.database import chroma_db
 from app.services.llm_service import llm_service
 from app.utils.document_processor import document_processor
+from app.utils.document_processor import serialize_metadata
 from app.core.config import settings
+
+from atomic_agents.lib.components.agent_memory import AgentMemory
+from atomic_agents.agents.base_agent import BaseAgentInputSchema
 
 class RAGService:
     def __init__(self):
         self.chroma_db = chroma_db
         self.llm_service = llm_service
         self.document_processor = document_processor
+        self.memory = AgentMemory(max_messages=100)
     
-    def query(self, question: str, max_chunks: Optional[int] = None) -> Dict[str, Any]:
+    def query(self, question: str, max_chunks: Optional[int] = None) -> Generator[Dict[str, Any], None, None]:
         """Process a question using RAG workflow"""
         if not question.strip():
             raise ValueError("Question cannot be empty")
+
+        user_message = BaseAgentInputSchema(chat_message=question)
+        self.memory.add_message(role="user", content=user_message)
+
+        history = self.memory.get_history()
         
+        mem_chunks = [m["content"] for m in history]
+
         # Use default max_chunks if not specified
         if max_chunks is None:
             max_chunks = settings.max_retrieved_chunks
@@ -27,7 +39,7 @@ class RAGService:
             )
             
             if not retrieval_results["documents"]:
-                return {
+                yield {
                     "answer": "I couldn't find any relevant information in the knowledge base to answer your question.",
                     "sources": [],
                     "metadata": {
@@ -36,29 +48,53 @@ class RAGService:
                         "retrieval_successful": False
                     }
                 }
+                return
+
+            all_context = mem_chunks + retrieval_results["documents"]
             
             # Step 2: Generate answer using LLM
             llm_response = self.llm_service.generate_answer(
                 question=question,
-                context_chunks=retrieval_results["documents"],
+                context_chunks=all_context,
                 metadata_list=retrieval_results["metadatas"]
             )
             
-            # Step 3: Combine results
+            # Step 3: Consume all chunks from LLM response
+            final_answer = ""
+            sources = None
+            model = None
+            usage = None
+            
+            for chunk in llm_response:
+                if "done" in chunk:
+                    break
+                if "answer" in chunk:
+                    final_answer = chunk["answer"]
+                if "sources" in chunk and sources is None:
+                    sources = chunk["sources"]
+                if "model" in chunk and model is None:
+                    model = chunk["model"]
+                if "usage" in chunk and usage is None:
+                    usage = chunk["usage"]
+            
+            assistant_message = BaseAgentInputSchema(chat_message=final_answer)
+            self.memory.add_message(role="assistant", content=assistant_message)
+            
+            # Step 4: Combine results
             response = {
-                "answer": llm_response["answer"],
-                "sources": llm_response["sources"],
+                "answer": final_answer,
+                "sources": sources or [],
                 "metadata": {
                     "question": question,
                     "chunks_retrieved": len(retrieval_results["documents"]),
                     "retrieval_successful": True,
-                    "model": llm_response["model"],
-                    "usage": llm_response["usage"],
+                    "model": model,
+                    "usage": usage,
                     "distances": retrieval_results["distances"]
                 }
             }
             
-            return response
+            yield response
             
         except Exception as e:
             raise Exception(f"Error in RAG query: {str(e)}")
@@ -71,7 +107,7 @@ class RAGService:
             
             # Extract content and metadata for ChromaDB
             chunk_contents = [chunk["content"] for chunk in chunks]
-            chunk_metadatas = [chunk["metadata"] for chunk in chunks]
+            chunk_metadatas = [serialize_metadata(chunk["metadata"]) for chunk in chunks]
             
             # Add to ChromaDB
             chunk_ids = self.chroma_db.add_documents(chunk_contents, chunk_metadatas)
@@ -98,7 +134,7 @@ class RAGService:
             
             # Extract content and metadata for ChromaDB
             chunk_contents = [chunk["content"] for chunk in chunks]
-            chunk_metadatas = [chunk["metadata"] for chunk in chunks]
+            chunk_metadatas = [serialize_metadata(chunk["metadata"]) for chunk in chunks]
             
             # Add to ChromaDB
             chunk_ids = self.chroma_db.add_documents(chunk_contents, chunk_metadatas)
@@ -135,7 +171,7 @@ class RAGService:
             
             # Extract content and metadata for ChromaDB
             chunk_contents = [chunk["content"] for chunk in all_chunks]
-            chunk_metadatas = [chunk["metadata"] for chunk in all_chunks]
+            chunk_metadatas = [serialize_metadata(chunk["metadata"]) for chunk in all_chunks]
             
             # Add to ChromaDB
             chunk_ids = self.chroma_db.add_documents(chunk_contents, chunk_metadatas)

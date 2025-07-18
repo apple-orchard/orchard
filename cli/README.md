@@ -26,9 +26,6 @@ If you prefer to run the CLI locally:
 # Install dependencies (if using uv)
 uv sync
 
-# Or install manually
-pip install -r requirements.txt
-
 # Run the CLI
 python orchard_cli.py --help
 ```

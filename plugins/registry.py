@@ -2,11 +2,12 @@
 
 import importlib
 import os
+import app.core.logging
 from typing import Dict, Optional, List, Type
 from pathlib import Path
 from .base import IngestionPlugin
 
-
+logger = app.core.logging.logger.getChild('plugins.registry')
 class PluginRegistry:
     """Registry for managing ingestion plugins."""
     
@@ -45,14 +46,14 @@ class PluginRegistry:
                 # Verify it's a subclass of IngestionPlugin
                 if issubclass(plugin_class, IngestionPlugin):
                     self._plugins[plugin_name] = plugin_class
-                    print(f"Loaded plugin: {plugin_name}")
+                    logger.info(f"Loaded plugin: {plugin_name}")
                 else:
-                    print(f"Warning: {plugin_class_name} is not a subclass of IngestionPlugin")
+                    logger.warning(f"{plugin_class_name} is not a subclass of IngestionPlugin")
             else:
-                print(f"Warning: Could not find {plugin_class_name} in {module_name}")
+                logger.warning(f"Could not find {plugin_class_name} in {module_name}")
                 
         except Exception as e:
-            print(f"Error loading plugin {plugin_name}: {e}")
+            logger.error(f"Error loading plugin {plugin_name}: {e}")
     
     def register_plugin(self, name: str, plugin_class: Type[IngestionPlugin]) -> None:
         """Manually register a plugin.

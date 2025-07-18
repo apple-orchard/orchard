@@ -5,6 +5,9 @@ import uuid
 import os
 from sentence_transformers import SentenceTransformer
 from app.core.config import settings
+import app.core.logging
+
+logger = app.core.logging.logger.getChild('utils.database')
 
 class ChromaDBManager:
     def __init__(self):
@@ -20,8 +23,14 @@ class ChromaDBManager:
                 path=settings.chroma_db_path,
             )
 
-            # Initialize embedding model
-            self.embedding_model = SentenceTransformer(settings.embedding_model)
+            # Initialize embedding model with cache folder support
+            cache_folder = os.environ.get('SENTENCE_TRANSFORMERS_HOME', None)
+            if cache_folder and os.path.exists(cache_folder):
+                self.embedding_model = SentenceTransformer(settings.embedding_model, cache_folder=cache_folder)
+                print(f"📁 Using cached model from: {cache_folder}")
+            else:
+                self.embedding_model = SentenceTransformer(settings.embedding_model)
+                print(f"📥 Downloading model: {settings.embedding_model}")
 
             # Get or create collection
             try:
@@ -32,10 +41,10 @@ class ChromaDBManager:
                     metadata={"hnsw:space": "cosine"}
                 )
 
-            print(f"ChromaDB initialized successfully at {settings.chroma_db_path}")
+            logger.info(f"ChromaDB initialized successfully at {settings.chroma_db_path}")
 
         except Exception as e:
-            print(f"Error initializing ChromaDB: {e}")
+            logger.error(f"Error initializing ChromaDB: {e}")
             raise
 
     def add_documents(self, chunks: List[str], metadatas: List[Dict[str, Any]]) -> List[str]:

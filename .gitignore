@@ -45,6 +45,9 @@ llamahive-ff2a8bfb9a69.json
 # ChromaDB
 chroma_db/
 
+# Model Cache
+model_cache/
+
 # Plugin configuration
 .github_cache/
 

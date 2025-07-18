@@ -47,13 +47,38 @@ api.interceptors.response.use(
 
 export const ragAPI: APIService = {
   // Query the RAG system
-  query: async (question: string, maxChunks: number = 5): Promise<RAGQueryResponse> => {
+  query: async function* (question: string, maxChunks: number = 5): AsyncGenerator<string> {
     try {
-      const response: AxiosResponse<RAGQueryResponse> = await api.post('/query', {
-        question,
-        max_chunks: maxChunks,
+      const res = await fetch(`${API_BASE_URL}/query`, {
+        method: 'POST',
+        body: JSON.stringify({ question, max_chunks: maxChunks }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'text/stream+plain',
+        },
       });
-      return response.data;
+      if (!res.ok) throw new Error(res.statusText);
+
+      const reader  = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let done = false;
+
+      try {
+        while (!done) {
+          const { value, done: doneReading } = await reader.read();
+          done = doneReading;
+          if (!value) continue;
+
+          const chunkText = decoder.decode(value, { stream: true });
+          for (const char of chunkText) {
+            // yield answer;
+            yield char as unknown as string;
+            await new Promise((r) => setTimeout(r, 0));
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
     } catch (error: any) {
       throw new Error(error.response?.data?.detail || 'Failed to query');
     }
@@ -147,6 +172,9 @@ export const pluginAPI = {
         {
           source_id: sourceId,
           full_sync: fullSync,
+        },
+        {
+          timeout: 600000,
         }
       );
       return response.data;
@@ -249,4 +277,4 @@ export const apiUtils = {
   },
 };
 
-export default api; 
+export default api;
