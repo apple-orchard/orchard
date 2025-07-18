@@ -22,7 +22,7 @@ A command-line tool to process Slack export zip files and stream their contents 
 
 ## Usage
 ```sh
-python slack_streamer.py <zip_file> <api_url> [--api-key API_KEY] [--batch-size N] [--delay SECONDS] [--endpoint ENDPOINT]
+python slack_streamer.py <zip_file> <api_url> [--api-key API_KEY] [--batch-size N] [--delay SECONDS]
 ```
 
 ### Arguments
