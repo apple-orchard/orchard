@@ -18,15 +18,18 @@ class RAGQueryAgentOutputSchema(BaseIOSchema):
     reasoning: str = Field(..., description="The reasoning process leading up to the final query")
     query: str = Field(..., description="The semantic search query to use for retrieving relevant chunks")
 
+class QueryAgent(BaseAgent):
+    def __init__(self, config: BaseAgentConfig):
+        super().__init__(config)
 
 class QueryAgentFactory:
     @staticmethod
-    def build(rag_context: SystemPromptContextProviderBase) -> BaseAgent: # TODO: pass extra data about the user
-        agent = BaseAgent(
+    def build() -> QueryAgent:
+        agent = QueryAgent(
             BaseAgentConfig(
                 client=instructor.from_provider("ollama/llama3.1", base_url=f"{settings.ollama_host}/v1"),
                 model="llama3.1",
-                memory=AgentMemory(max_messages=100), # TODO: populate the agent memory with the user's history/memory
+                memory=AgentMemory(max_messages=100),
                 system_prompt_generator=SystemPromptGenerator(
                     background=[
                         "You are an expert at formulating semantic search queries for RAG systems.",
@@ -43,11 +46,11 @@ class QueryAgentFactory:
                         "Avoid overly specific details that might miss relevant matches",
                         "Include synonyms or related terms when appropriate",
                         "Explain your reasoning for the query formulation",
+                        "You should account for users making statements rather than asking questions",
                     ],
                 ),
                 input_schema=RAGQueryAgentInputSchema,
                 output_schema=RAGQueryAgentOutputSchema,
             )
         )
-        agent.register_context_provider("rag_context", rag_context)
         return agent
