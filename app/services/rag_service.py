@@ -8,6 +8,8 @@ from app.agents.query_agent import QueryAgentFactory, RAGQueryAgentInputSchema
 from app.agents.qa_agent import QAAgentFactory, RAGQuestionAnsweringAgentInputSchema
 from app.core.context_providers import RAGContextProvider, ChunkItem
 from atomic_agents.agents.base_agent import BaseAgent
+from app.agents.query_agent import QueryAgent
+from app.agents.qa_agent import QAAgent
 from openai.types.chat.chat_completion_user_message_param import ChatCompletionUserMessageParam
 
 logger = app.core.logging.logger.getChild('services.rag_service')
@@ -17,11 +19,19 @@ class RAGService:
         self.chroma_db = chroma_db
         self.document_processor = document_processor
     
-    async def query(self, question: str, max_chunks: Optional[int] = None) -> AsyncGenerator[Dict[str, Any], None]:
+    async def query(
+        self,
+        question: str,
+        query_agent: QueryAgent,
+        qa_agent: QAAgent,
+        max_chunks: Optional[int] = None,
+    ) -> AsyncGenerator[Dict[str, Any], None]:
         """Process a question using RAG workflow"""
+
+        # Register context providers for agents
         rag_context = RAGContextProvider(title="RAG Context")
-        query_agent = QueryAgentFactory.build(rag_context)
-        qa_agent = QAAgentFactory.build(rag_context)
+        qa_agent.register_context_provider("rag_context", rag_context)
+        query_agent.register_context_provider("rag_context", rag_context)
 
         if not question.strip():
             raise ValueError("Question cannot be empty")
@@ -37,18 +47,6 @@ class RAGService:
             query=query_output.model_dump()["query"],
             n_results=max_chunks
         )
-        
-        if not search_results["documents"]:
-            yield {
-                "answer": "I couldn't find any relevant information in the knowledge base to answer your question.",
-                "sources": [],
-                "metadata": {
-                    "question": question,
-                    "chunks_retrieved": 0,
-                    "retrieval_successful": False
-                }
-            }
-            return
 
         # Update context with retrieved chunks
         rag_context.chunks = [
@@ -57,24 +55,39 @@ class RAGService:
         ]
         
         # Step 2: Generate answer using QA agent
-        qa_output = qa_agent.run_async(RAGQuestionAnsweringAgentInputSchema(question=question))
-        
-        # qa_agent.run_async() actually returns an async generator
-        current_answer = ""
-        async for partial_response in qa_output:
-            response_json: Dict[str, Any] = partial_response.model_dump() if partial_response is not None else {}
-            if response_json["answer"] is not None:
-                if response_json["answer"] != current_answer:
-                    current_answer = response_json["answer"]
-                    yield {
-                        "answer": current_answer,
-                        "sources": response_json["sources"] or [],
-                        "metadata": {
-                            "question": question,
-                            "chunks_retrieved": len(search_results["documents"]),
-                            "distances": search_results["distances"]
+        user_input = RAGQuestionAnsweringAgentInputSchema(question=question)
+
+        # Run QA agent
+        qa_output = qa_agent.run_async(user_input)
+
+        try:
+            # qa_agent.run_async() actually returns an async generator
+            current_answer = ""
+            async for partial_response in qa_output:
+                response_json: Dict[str, Any] = partial_response.model_dump() if partial_response is not None else {}
+                if response_json["answer"] is not None:
+                    if response_json["answer"] != current_answer:
+                        current_answer = response_json["answer"]
+                        yield {
+                            "answer": current_answer,
+                            "sources": response_json["sources"] or [],
+                            "metadata": {
+                                "question": question,
+                                "chunks_retrieved": len(search_results["documents"]),
+                                "distances": search_results["distances"]
+                            }
                         }
-                    }
+        except Exception as e:
+            logger.error(f"Error in query: {e}")
+            yield {
+                "answer": "I'm sorry, I'm having trouble answering your question. Please try again.",
+                "sources": [],
+                "metadata": {
+                    "question": question,
+                    "chunks_retrieved": len(search_results["documents"]),
+                    "distances": search_results["distances"]
+                }
+            }
     
     def ingest_text(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Ingest raw text into the knowledge base"""
@@ -304,8 +317,8 @@ class RAGService:
         
         # Test agents
         try:
-            query_agent_test = self._test_agent(QueryAgentFactory.build(RAGContextProvider(title="RAG Context")))
-            qa_agent_test = self._test_agent(QAAgentFactory.build(RAGContextProvider(title="RAG Context"), is_async=False))
+            query_agent_test = self._test_agent(QueryAgentFactory.build())
+            qa_agent_test = self._test_agent(QAAgentFactory.build(is_async=False))
             results["agents"]["status"] = "healthy" if query_agent_test and qa_agent_test else "error"
             if not query_agent_test:
                 results["agents"]["error"] = "Query agent connection test failed"

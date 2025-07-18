@@ -20,6 +20,9 @@ from app.services.streaming_plugin_handler import StreamingPluginHandler
 from io import StringIO
 import json
 from app.core.logging import logger
+from app.agents.query_agent import QueryAgentFactory
+from app.agents.qa_agent import QAAgentFactory
+from app.core.context_providers import RAGContextProvider
 
 # Create FastAPI app
 app = FastAPI(
@@ -41,6 +44,10 @@ app.add_middleware(
 
 # Include routers
 app.include_router(plugins_router, prefix="/api")
+
+# Initialize agents
+query_agent = QueryAgentFactory.build()
+qa_agent = QAAgentFactory.build()
 
 @app.exception_handler(HTTPException)
 async def global_exception_handler(request, exc: HTTPException):
@@ -134,7 +141,9 @@ async def query_documents(request: QueryRequest, http_request: Request):
         # Process the query using RAG service
         stream = rag_service.query(
             question=request.question,
-            max_chunks=request.max_chunks
+            query_agent=query_agent,
+            qa_agent=qa_agent,
+            max_chunks=request.max_chunks,
         )
 
         # Handle text/plain response
