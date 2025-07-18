@@ -150,7 +150,7 @@ class SlackExportStreamer:
             yield batch
     
     def send_to_api(self, data: List[Dict], batch_number: int, is_final_batch: bool) -> bool:
-        """Send batch of messages to /ingest/batch API endpoint with new schema"""
+        """Send batch of messages to /ingest/batch API endpoint"""
         url = self.api_url.rstrip('/') + '/ingest/batch'
         filtered_data = [msg for msg in data if 'content' in msg and msg['content'].get('text')]
         if len(filtered_data) < len(data):
@@ -158,7 +158,7 @@ class SlackExportStreamer:
         batch_id = str(uuid.uuid4())
         payload = {
             "batch_id": batch_id,
-            "documents": filtered_data,  # Will update message structure in next step
+            "documents": filtered_data,
             "batch_metadata": {
                 "batch_number": batch_number,
                 "is_final_batch": is_final_batch

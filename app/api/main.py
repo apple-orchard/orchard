@@ -281,7 +281,6 @@ async def ingest_document(
 async def ingest_batch_messages(request: BatchIngestRequest):
     """
     Endpoint to ingest a batch of documents (e.g., Slack messages, threads, files) into the knowledge base.
-    Each document should follow the new schema.
     """
     try:
         total_chunks = 0
