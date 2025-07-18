@@ -53,4 +53,5 @@ class QueryAgentFactory:
                 output_schema=RAGQueryAgentOutputSchema,
             )
         )
+        agent.client.mode = instructor.Mode.JSON
         return agent

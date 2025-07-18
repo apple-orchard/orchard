@@ -70,7 +70,7 @@ class RAGService:
                         current_answer = response_json["answer"]
                         yield {
                             "answer": current_answer,
-                            "sources": response_json["sources"] or [],
+                            "sources": [],
                             "metadata": {
                                 "question": question,
                                 "chunks_retrieved": len(search_results["documents"]),
