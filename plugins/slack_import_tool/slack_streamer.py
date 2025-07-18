@@ -16,6 +16,7 @@ from datetime import datetime
 import time
 import uuid
 import shutil
+import tempfile
 
 class SlackDataProcessor:
     def __init__(self, users: Dict, channels: Dict):
@@ -183,7 +184,7 @@ class SlackExportStreamer:
                       delay: float = 0.1) -> None:
         """Main processing function"""
         # Create temporary extraction directory
-        extract_path = f"/tmp/slack_export_{int(time.time())}"
+        extract_path = tempfile.mkdtemp(prefix="slack_export_")
         
         try:
             # Extract zip file
