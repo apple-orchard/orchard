@@ -146,7 +146,7 @@ async def query_documents(request: QueryRequest, http_request: Request):
         # Handle text/plain response
         if "text/plain" in accept_header:
             final_answer = ""
-            for chunk in stream:
+            async for chunk in stream:
                 if "done" in chunk:
                     break
                 if "answer" in chunk:
@@ -154,27 +154,37 @@ async def query_documents(request: QueryRequest, http_request: Request):
             return PlainTextResponse(content=final_answer)
 
         if "text/stream+plain" in accept_header:
-            async def generate_stream():
-                for chunk in stream:
-                    yield chunk["answer"]
+            async def generate_text_stream():
+                current_answer = ""
+                async for chunk in stream:
+                    if "done" in chunk:
+                        break
+                    if "answer" in chunk and chunk["answer"] != current_answer:
+                        if current_answer == "":
+                            current_answer = chunk["answer"]
+                            yield current_answer
+                        else:
+                            new_token = str(chunk["answer"]).split(sep=current_answer)[-1]
+                            current_answer += new_token or current_answer
+                            yield new_token
 
             return StreamingResponse(
-                generate_stream(),
+                generate_text_stream(),
                 media_type="text/stream+plain",
                 headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
             )
 
         # Handle application/stream+json response
         elif "application/stream+json" in accept_header:
-            async def generate_stream():
-                for chunk in stream:
+            async def generate_json_stream():
+                async for chunk in stream:
                     if "done" in chunk:
                         yield f"data: {json.dumps({'done': True})}\n\n"
                     else:
                         yield f"data: {json.dumps(chunk)}\n\n"
 
             return StreamingResponse(
-                generate_stream(),
+                generate_json_stream(),
                 media_type="application/stream+json",
                 headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
             )
@@ -186,7 +196,7 @@ async def query_documents(request: QueryRequest, http_request: Request):
             sources = None
             metadata = None
 
-            for chunk in stream:
+            async for chunk in stream:
                 if "done" in chunk:
                     break
                 if "answer" in chunk:

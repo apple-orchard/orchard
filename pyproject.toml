@@ -33,7 +33,3 @@ dependencies = [
     "debugpy>=1.8.15",
     "atomic-agents>=1.1.11",
 ]
-
-[tool.uv.workspace]
-members = [
-]

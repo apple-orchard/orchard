@@ -472,8 +472,10 @@ orchard/
 │   ├── models/
 │   │   └── schemas.py       # Pydantic models
 │   ├── services/
-│   │   ├── llm_service.py   # ollama integration
 │   │   └── rag_service.py   # RAG workflow
+│   ├── agents/
+│   │   ├── query_agent.py   # Agent for fitting user messages to chroma DB queries
+│   │   └── qa_agent.py      # Agent for handling questions and answers
 │   └── utils/
 │       ├── database.py      # ChromaDB utilities
 │       └── document_processor.py  # Document processing
