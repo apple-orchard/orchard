@@ -25,6 +25,7 @@ dependencies = [
     "llama-index-core>=0.11.23",
     "llama-index-readers-github>=0.2.0",
     "llama-index-readers-web>=0.1.0",
+    "llama-index-readers-google>=0.2.0",
     "llama-index-embeddings-huggingface>=0.3.1",
     "llama-index-vector-stores-chroma>=0.3.0",
     "gitpython>=3.1.43",

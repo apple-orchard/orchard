@@ -33,6 +33,37 @@ plugins:
         max_depth: 2
         respect_robots_txt: true
         user_agent: OrchardRAG/1.0
+  google_drive:
+    enabled: true
+    auth_type: "service_account"  # Can be "oauth" or "service_account"
+    config:
+      # oauth_config:
+      #   client_id: "${GOOGLE_CLIENT_ID}"
+      #   client_secret: "${GOOGLE_CLIENT_SECRET}"
+      #   refresh_token: "${GOOGLE_REFRESH_TOKEN}"
+      # Alternative: service_account_config (if using service account)
+      service_account_config:
+        key_file: "${GOOGLE_SERVICE_ACCOUNT_FILE}"
+        delegated_user: null  # Optional: email to impersonate
+      sources:
+        - id: "DoD Submissions"
+          drive_id: "root"  # "root" for My Drive, or specific drive ID
+          folder_id: 167WVeUg4M-rUlw1PMMCVuuexEsZHl8OW   # null for entire drive, or specific folder ID
+          file_types:
+            - "document"    # Google Docs
+            - "spreadsheet" # Google Sheets
+            - "presentation" # Google Slides
+            - "pdf"
+            - "application/vnd.openxmlformats-officedocument.wordprocessingml.document"  # DOCX files
+            - "application/msword"  # DOC files
+          exclude_patterns:
+            - "*.tmp"
+            - "~*"
+            - "*.bak"
+          include_shared: true
+          include_trashed: false
+          recursive: true  # Recursively traverse all subfolders
+          sync_mode: "incremental"
 global_settings:
   chunk_size: 1500
   chunk_overlap: 300
