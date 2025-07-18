@@ -49,7 +49,7 @@ class QAAgentFactory:
                         "If context is insufficient, state this in your reasoning",
                         "Never make up information not present in the chunks",
                         "Focus on being accurate and concise",
-                        "If you cannot answer the question, say so in your responsen"
+                        "If you cannot answer the question, say so in your response"
                     ],
                 ),
                 input_schema=RAGQuestionAnsweringAgentInputSchema,
