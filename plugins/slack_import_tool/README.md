@@ -33,7 +33,6 @@ python slack_streamer.py <zip_file> <api_url> [--api-key API_KEY] [--batch-size 
 - `--api-key`: API authentication key (optional)
 - `--batch-size`: Number of messages per batch (default: 100)
 - `--delay`: Delay in seconds between API calls (default: 0.1)
-- `--endpoint`: API endpoint path (default: none; if set, appended to base URL)
 - `--dry-run`: Write payloads to a file instead of sending to the API (for testing/debugging)
 - `--dry-run-file`: File to write dry-run payloads (default: dry_run_output.txt)
 
