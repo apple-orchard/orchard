@@ -15,6 +15,7 @@ import requests
 from datetime import datetime
 import time
 import uuid
+import shutil
 
 class SlackDataProcessor:
     def __init__(self, users: Dict, channels: Dict):
@@ -22,8 +23,6 @@ class SlackDataProcessor:
         self.channels = channels
 
     def process_message(self, message: Dict, channel_name: str) -> Dict:
-        import uuid
-        from datetime import datetime
         document_id = message.get('client_msg_id') or message.get('ts') or str(uuid.uuid4())
         document_type = 'message'
         if message.get('subtype') == 'thread_broadcast':
@@ -217,7 +216,7 @@ class SlackExportStreamer:
             
         finally:
             # Clean up temporary files
-            import shutil
+            
             if os.path.exists(extract_path):
                 shutil.rmtree(extract_path)
 
