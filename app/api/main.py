@@ -20,6 +20,9 @@ from app.services.streaming_plugin_handler import StreamingPluginHandler
 from io import StringIO
 import json
 from app.core.logging import logger
+from app.agents.query_agent import QueryAgentFactory
+from app.agents.qa_agent import QAAgentFactory
+from app.core.context_providers import RAGContextProvider
 
 # Create FastAPI app
 app = FastAPI(
@@ -41,6 +44,10 @@ app.add_middleware(
 
 # Include routers
 app.include_router(plugins_router, prefix="/api")
+
+# Initialize agents
+query_agent = QueryAgentFactory.build()
+qa_agent = QAAgentFactory.build()
 
 @app.exception_handler(HTTPException)
 async def global_exception_handler(request, exc: HTTPException):
@@ -134,13 +141,15 @@ async def query_documents(request: QueryRequest, http_request: Request):
         # Process the query using RAG service
         stream = rag_service.query(
             question=request.question,
-            max_chunks=request.max_chunks
+            query_agent=query_agent,
+            qa_agent=qa_agent,
+            max_chunks=request.max_chunks,
         )
 
         # Handle text/plain response
         if "text/plain" in accept_header:
             final_answer = ""
-            for chunk in stream:
+            async for chunk in stream:
                 if "done" in chunk:
                     break
                 if "answer" in chunk:
@@ -148,27 +157,37 @@ async def query_documents(request: QueryRequest, http_request: Request):
             return PlainTextResponse(content=final_answer)
 
         if "text/stream+plain" in accept_header:
-            async def generate_stream():
-                for chunk in stream:
-                    yield chunk["answer"]
+            async def generate_text_stream():
+                current_answer = ""
+                async for chunk in stream:
+                    if "done" in chunk:
+                        break
+                    if "answer" in chunk and chunk["answer"] != current_answer:
+                        if current_answer == "":
+                            current_answer = chunk["answer"]
+                            yield current_answer
+                        else:
+                            new_token = str(chunk["answer"]).split(sep=current_answer)[-1]
+                            current_answer += new_token or current_answer
+                            yield new_token
 
             return StreamingResponse(
-                generate_stream(),
+                generate_text_stream(),
                 media_type="text/stream+plain",
                 headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
             )
 
         # Handle application/stream+json response
         elif "application/stream+json" in accept_header:
-            async def generate_stream():
-                for chunk in stream:
+            async def generate_json_stream():
+                async for chunk in stream:
                     if "done" in chunk:
                         yield f"data: {json.dumps({'done': True})}\n\n"
                     else:
                         yield f"data: {json.dumps(chunk)}\n\n"
 
             return StreamingResponse(
-                generate_stream(),
+                generate_json_stream(),
                 media_type="application/stream+json",
                 headers={"Cache-Control": "no-cache", "Connection": "keep-alive"}
             )
@@ -180,7 +199,7 @@ async def query_documents(request: QueryRequest, http_request: Request):
             sources = None
             metadata = None
 
-            for chunk in stream:
+            async for chunk in stream:
                 if "done" in chunk:
                     break
                 if "answer" in chunk:

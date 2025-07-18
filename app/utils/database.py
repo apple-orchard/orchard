@@ -86,7 +86,8 @@ class ChromaDBManager:
             return {
                 "documents": results["documents"][0] if results["documents"] else [],
                 "metadatas": results["metadatas"][0] if results["metadatas"] else [],
-                "distances": results["distances"][0] if results["distances"] else []
+                "distances": results["distances"][0] if results["distances"] else [],
+                "ids": results["ids"][0] if results["ids"] else [],
             }
 
         except Exception as e:

@@ -34,7 +34,6 @@ class Settings(BaseSettings):
     api_title: str = "RAG API"
     api_description: str = "A FastAPI-based RAG system with ChromaDB"
     api_version: str = "1.0.0"
-
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
