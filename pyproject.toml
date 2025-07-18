@@ -31,10 +31,5 @@ dependencies = [
     "beautifulsoup4>=4.12.3",
     "pyyaml>=6.0.0",
     "debugpy>=1.8.15",
-]
-
-[tool.uv.workspace]
-members = [
     "atomic-agents>=1.1.11",
-    "debugpy>=1.8.15",
 ]

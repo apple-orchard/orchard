@@ -1,103 +1,80 @@
-from typing import List, Dict, Any, Optional, Generator
+import app.core.logging
+from typing import List, Dict, Any, Optional, AsyncGenerator
 from app.utils.database import chroma_db
-from app.services.llm_service import llm_service
 from app.utils.document_processor import document_processor
 from app.utils.document_processor import serialize_metadata
 from app.core.config import settings
+from app.agents.query_agent import QueryAgentFactory, RAGQueryAgentInputSchema
+from app.agents.qa_agent import QAAgentFactory, RAGQuestionAnsweringAgentInputSchema
+from app.core.context_providers import RAGContextProvider, ChunkItem
+from atomic_agents.agents.base_agent import BaseAgent
+from openai.types.chat.chat_completion_user_message_param import ChatCompletionUserMessageParam
 
-from atomic_agents.lib.components.agent_memory import AgentMemory
-from atomic_agents.agents.base_agent import BaseAgentInputSchema
+logger = app.core.logging.logger.getChild('services.rag_service')
 
 class RAGService:
     def __init__(self):
         self.chroma_db = chroma_db
-        self.llm_service = llm_service
         self.document_processor = document_processor
-        self.memory = AgentMemory(max_messages=100)
     
-    def query(self, question: str, max_chunks: Optional[int] = None) -> Generator[Dict[str, Any], None, None]:
+    async def query(self, question: str, max_chunks: Optional[int] = None) -> AsyncGenerator[Dict[str, Any], None]:
         """Process a question using RAG workflow"""
+        rag_context = RAGContextProvider(title="RAG Context")
+        query_agent = QueryAgentFactory.build(rag_context)
+        qa_agent = QAAgentFactory.build(rag_context)
+
         if not question.strip():
             raise ValueError("Question cannot be empty")
 
-        user_message = BaseAgentInputSchema(chat_message=question)
-        self.memory.add_message(role="user", content=user_message)
-
-        history = self.memory.get_history()
-        
-        mem_chunks = [m["content"] for m in history]
+        query_output = query_agent.run(RAGQueryAgentInputSchema(user_message=question))
 
         # Use default max_chunks if not specified
         if max_chunks is None:
             max_chunks = settings.max_retrieved_chunks
         
-        try:
-            # Step 1: Retrieve relevant documents from ChromaDB
-            retrieval_results = self.chroma_db.query_documents(
-                query=question,
-                n_results=max_chunks
-            )
-            
-            if not retrieval_results["documents"]:
-                yield {
-                    "answer": "I couldn't find any relevant information in the knowledge base to answer your question.",
-                    "sources": [],
-                    "metadata": {
-                        "question": question,
-                        "chunks_retrieved": 0,
-                        "retrieval_successful": False
-                    }
-                }
-                return
-
-            all_context = mem_chunks + retrieval_results["documents"]
-            
-            # Step 2: Generate answer using LLM
-            llm_response = self.llm_service.generate_answer(
-                question=question,
-                context_chunks=all_context,
-                metadata_list=retrieval_results["metadatas"]
-            )
-            
-            # Step 3: Consume all chunks from LLM response
-            final_answer = ""
-            sources = None
-            model = None
-            usage = None
-            
-            for chunk in llm_response:
-                if "done" in chunk:
-                    break
-                if "answer" in chunk:
-                    final_answer = chunk["answer"]
-                if "sources" in chunk and sources is None:
-                    sources = chunk["sources"]
-                if "model" in chunk and model is None:
-                    model = chunk["model"]
-                if "usage" in chunk and usage is None:
-                    usage = chunk["usage"]
-            
-            assistant_message = BaseAgentInputSchema(chat_message=final_answer)
-            self.memory.add_message(role="assistant", content=assistant_message)
-            
-            # Step 4: Combine results
-            response = {
-                "answer": final_answer,
-                "sources": sources or [],
+        # Step 1: Retrieve relevant documents from ChromaDB
+        search_results = self.chroma_db.query_documents(
+            query=query_output.model_dump()["query"],
+            n_results=max_chunks
+        )
+        
+        if not search_results["documents"]:
+            yield {
+                "answer": "I couldn't find any relevant information in the knowledge base to answer your question.",
+                "sources": [],
                 "metadata": {
                     "question": question,
-                    "chunks_retrieved": len(retrieval_results["documents"]),
-                    "retrieval_successful": True,
-                    "model": model,
-                    "usage": usage,
-                    "distances": retrieval_results["distances"]
+                    "chunks_retrieved": 0,
+                    "retrieval_successful": False
                 }
             }
-            
-            yield response
-            
-        except Exception as e:
-            raise Exception(f"Error in RAG query: {str(e)}")
+            return
+
+        # Update context with retrieved chunks
+        rag_context.chunks = [
+            ChunkItem(content=doc, metadata={"chunk_id": id, "distance": dist})
+            for doc, id, dist in zip(search_results["documents"], search_results["ids"], search_results["distances"])
+        ]
+        
+        # Step 2: Generate answer using QA agent
+        qa_output = qa_agent.run_async(RAGQuestionAnsweringAgentInputSchema(question=question))
+        
+        # qa_agent.run_async() actually returns an async generator
+        current_answer = ""
+        async for partial_response in qa_output:
+            response_json: Dict[str, Any] = partial_response.model_dump() if partial_response is not None else {}
+            if response_json["answer"] is not None:
+                if response_json["answer"] != current_answer:
+                    current_answer = response_json["answer"]
+                    yield {
+                        "answer": current_answer,
+                        "sources": response_json["sources"] or [],
+                        "metadata": {
+                            "question": question,
+                            "chunks_retrieved": len(search_results["documents"]),
+                            "distances": search_results["distances"]
+                        }
+                    }
     
     def ingest_text(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Ingest raw text into the knowledge base"""
@@ -290,12 +267,29 @@ class RAGService:
         summary["recent_ingestions"] = summary["recent_ingestions"][:10]  # Keep only 10 most recent
         
         return summary
+
+    def _test_agent(self, agent: BaseAgent) -> bool:
+        try:
+            # Test with a simple ping-like request
+            response = agent.client.chat.completions.create(
+                messages=[
+                    ChatCompletionUserMessageParam(
+                        role="user",
+                        content="Hello, this is a test message. Please respond with just 'OK'.",
+                    )
+                ],
+                response_model=None,
+            )
+            return True
+        except Exception as e:
+            print(f"Ollama connection test failed: {e}")
+            return False
     
     def test_system(self) -> Dict[str, Any]:
         """Test all components of the RAG system"""
         results = {
             "chromadb": {"status": "unknown", "error": None},
-            "llm": {"status": "unknown", "error": None},
+            "agents": {"status": "unknown", "error": None},
             "overall": {"status": "unknown", "error": None}
         }
         
@@ -308,18 +302,21 @@ class RAGService:
             results["chromadb"]["status"] = "error"
             results["chromadb"]["error"] = str(e)
         
-        # Test LLM
+        # Test agents
         try:
-            llm_test = self.llm_service.test_connection()
-            results["llm"]["status"] = "healthy" if llm_test else "error"
-            if not llm_test:
-                results["llm"]["error"] = "Connection test failed"
+            query_agent_test = self._test_agent(QueryAgentFactory.build(RAGContextProvider(title="RAG Context")))
+            qa_agent_test = self._test_agent(QAAgentFactory.build(RAGContextProvider(title="RAG Context"), is_async=False))
+            results["agents"]["status"] = "healthy" if query_agent_test and qa_agent_test else "error"
+            if not query_agent_test:
+                results["agents"]["error"] = "Query agent connection test failed"
+            if not qa_agent_test:
+                results["agents"]["error"] = "QA agent connection test failed"
         except Exception as e:
-            results["llm"]["status"] = "error"
-            results["llm"]["error"] = str(e)
+            results["agents"]["status"] = "error"
+            results["agents"]["error"] = str(e)
         
         # Overall status
-        if results["chromadb"]["status"] == "healthy" and results["llm"]["status"] == "healthy":
+        if results["chromadb"]["status"] == "healthy" and results["agents"]["status"] == "healthy":
             results["overall"]["status"] = "healthy"
         else:
             results["overall"]["status"] = "error"

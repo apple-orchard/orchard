@@ -74,12 +74,12 @@ def test_system() -> None:
         else:
             display_helper.print_error(f"ChromaDB: {chromadb_status.get('error', 'Unknown error')}")
         
-        # Test LLM
-        llm_status = response.get("llm", {})
-        if llm_status.get("status") == "healthy":
-            display_helper.print_success("LLM: Healthy")
+        # Test agents
+        agents_status = response.get("agents", {})
+        if agents_status.get("status") == "healthy":
+            display_helper.print_success("Agents: Healthy")
         else:
-            display_helper.print_error(f"LLM: {llm_status.get('error', 'Unknown error')}")
+            display_helper.print_error(f"Agents: {agents_status.get('error', 'Unknown error')}")
         
         # Overall status
         overall_status = response.get("overall", {})
