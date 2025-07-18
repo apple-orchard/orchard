@@ -299,9 +299,7 @@ async def ingest_batch_messages(request: BatchIngestRequest):
                 "is_final_batch": request.batch_metadata.is_final_batch,
                 "document_id": doc.document_id,
                 "document_type": doc.document_type,
-                "channel": doc.channel.dict(),
-                "content": doc.content.dict(),
-                **doc.metadata.dict(),
+                "channel": doc.channel.name,
             }
             result = rag_service.ingest_text(text, metadata)
             if result.get("success"):
