@@ -11,6 +11,10 @@ import {
   JobStatus,
   SourceListResponse,
   GlobalSettings,
+  JobInfo,
+  JobListResponse,
+  JobStatsResponse,
+  AsyncJobResponse,
 } from '../types';
 
 const API_BASE_URL: string = process.env.REACT_APP_API_URL || 'http://localhost:8011';
@@ -227,6 +231,78 @@ export const pluginAPI = {
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.detail || 'Failed to update global settings');
+    }
+  },
+};
+
+// Job Management API methods
+export const jobAPI = {
+  // Get specific job status
+  getJobStatus: async (jobId: string): Promise<JobInfo> => {
+    try {
+      const response: AxiosResponse<JobInfo> = await api.get(`/jobs/${jobId}`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to get job status');
+    }
+  },
+
+  // List all jobs with optional filtering
+  listJobs: async (status?: string, limit: number = 50): Promise<JobListResponse> => {
+    try {
+      const params = new URLSearchParams();
+      if (status) params.append('status', status);
+      params.append('limit', limit.toString());
+
+      const response: AxiosResponse<JobListResponse> = await api.get(`/jobs?${params}`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to list jobs');
+    }
+  },
+
+  // Cancel a job
+  cancelJob: async (jobId: string): Promise<void> => {
+    try {
+      await api.delete(`/jobs/${jobId}`);
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to cancel job');
+    }
+  },
+
+  // Get job statistics
+  getJobStats: async (): Promise<JobStatsResponse> => {
+    try {
+      const response: AxiosResponse<JobStatsResponse> = await api.get('/jobs/stats');
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to get job statistics');
+    }
+  },
+
+  // Start async text ingestion
+  ingestTextAsync: async (textContent: string, metadata: Record<string, any> = {}): Promise<AsyncJobResponse> => {
+    try {
+      const response: AxiosResponse<AsyncJobResponse> = await api.post('/ingest/text/async', {
+        text_content: textContent,
+        metadata,
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to start text ingestion');
+    }
+  },
+
+  // Start async batch ingestion
+  ingestBatchAsync: async (messages: Array<{text: string, metadata?: Record<string, any>}>, metadata: Record<string, any> = {}): Promise<AsyncJobResponse> => {
+    try {
+      const response: AxiosResponse<AsyncJobResponse> = await api.post('/ingest/batch/async', {
+        messages,
+        metadata,
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to start batch ingestion');
     }
   },
 };
