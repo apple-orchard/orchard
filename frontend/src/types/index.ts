@@ -18,6 +18,46 @@ export interface Message {
   isLoading?: boolean;
 }
 
+// Job Management types
+export interface JobInfo {
+  job_id: string;
+  job_type: 'text_ingestion' | 'file_ingestion' | 'directory_ingestion' | 'batch_ingestion';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  progress: number; // 0.0 to 1.0
+  message: string;
+  error_message?: string;
+  chunks_created: number;
+  total_items: number;
+  processed_items: number;
+  metadata: Record<string, any>;
+}
+
+export interface JobListResponse {
+  jobs: JobInfo[];
+  total_count: number;
+}
+
+export interface JobStatsResponse {
+  total_jobs: number;
+  pending: number;
+  running: number;
+  completed: number;
+  failed: number;
+  cancelled: number;
+  total_chunks_created: number;
+}
+
+export interface AsyncJobResponse {
+  job_id: string;
+  job_type: string;
+  status: string;
+  created_at: string;
+  message: string;
+}
+
 // API Response types
 export interface RAGQueryResponse {
   answer: string;
@@ -167,6 +207,10 @@ export interface DocumentUploadProps {
   onUploadComplete?: (result: FileUploadResponse) => void;
 }
 
+export interface JobManagerProps {
+  className?: string;
+}
+
 // API Service types
 export interface APIService {
   query: (message: string) => AsyncGenerator<string>;
@@ -175,4 +219,4 @@ export interface APIService {
 
 // Common utility types
 export type MessageType = Message['type'];
-export type LoadingState = boolean; 
+export type LoadingState = boolean;

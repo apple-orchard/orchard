@@ -1,8 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useImperativeHandle, forwardRef } from 'react';
 import { InputFormProps } from '../types';
 
-const InputForm: React.FC<InputFormProps> = ({ value, onChange, onSend, isLoading, placeholder }) => {
+// Define the ref type for the InputForm component
+export interface InputFormRef {
+  focus: () => void;
+}
+
+const InputForm = forwardRef<InputFormRef, InputFormProps>(({ value, onChange, onSend, isLoading, placeholder }, ref) => {
   const [inputValue, setInputValue] = useState<string>('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Expose the focus method to parent components
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      textareaRef.current?.focus();
+    }
+  }));
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
@@ -27,6 +40,7 @@ const InputForm: React.FC<InputFormProps> = ({ value, onChange, onSend, isLoadin
     <form className="p-4 md:p-5 border-t border-gray-200 bg-gray-50" onSubmit={handleSubmit}>
       <div className="flex gap-2 md:gap-3 items-end">
         <textarea
+          ref={textareaRef}
           value={inputValue}
           onChange={handleInputChange}
           onKeyPress={handleKeyPress}
@@ -49,6 +63,6 @@ const InputForm: React.FC<InputFormProps> = ({ value, onChange, onSend, isLoadin
       </div>
     </form>
   );
-};
+});
 
-export default InputForm; 
+export default InputForm;

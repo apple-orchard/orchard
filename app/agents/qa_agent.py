@@ -18,7 +18,6 @@ class RAGQuestionAnsweringAgentOutputSchema(BaseIOSchema):
 
     reasoning: str = Field(..., description="The reasoning process leading up to the final answer")
     answer: str = Field(..., description="The answer to the user's question based on the retrieved context. If the user did not ask a question, this should be a natural acknowledgement of the user's message.")
-    sources: List[str] = Field(..., description="The context sources used to answer the question")
 
 class QAAgent(BaseAgent):
     def __init__(self, config: BaseAgentConfig):
@@ -63,4 +62,5 @@ class QAAgentFactory:
                 output_schema=RAGQuestionAnsweringAgentOutputSchema,
             )
         )
+        agent.client.mode = instructor.Mode.JSON
         return agent
