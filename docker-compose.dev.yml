@@ -8,9 +8,9 @@ services:
       - "8011:8011"
       - "5678:5678"  # Debugger port
     volumes:
-      - ./chroma_db:/app/chroma_db
+      - ./chroma_db:/app/data/chroma_db
       - ./documents:/app/documents
-      - ./model_cache:/app/model_cache  # Mount pre-downloaded models
+      - ./model_cache:/app/data/model_cache  # Mount pre-downloaded models
       - ./app:/app/app  # Mount source code for development
       - ./plugins:/app/plugins  # Mount plugins for development
       - ./main.py:/app/main.py  # Mount main.py for development
@@ -20,7 +20,7 @@ services:
     environment:
       - OLLAMA_HOST=http://host.docker.internal:11434
       - OLLAMA_MODEL=llama3.1:8b
-      - CHROMA_DB_PATH=/app/chroma_db
+      - CHROMA_DB_PATH=/app/data/chroma_db
       - EMBEDDING_MODEL=all-mpnet-base-v2
       - CHUNK_SIZE=1500
       - CHUNK_OVERLAP=300
@@ -30,9 +30,9 @@ services:
       - DEBUG_MODE=${DEBUG_MODE:-false}
       - PYDEVD_DISABLE_FILE_VALIDATION=1 # Disable debugpy warning for frozen standard library modules
       # Model cache configuration for pre-downloaded models
-      - TRANSFORMERS_CACHE=/app/model_cache
-      - SENTENCE_TRANSFORMERS_HOME=/app/model_cache
-      - HF_HOME=/app/model_cache
+      - TRANSFORMERS_CACHE=/app/data/model_cache
+      - SENTENCE_TRANSFORMERS_HOME=/app/data/model_cache
+      - HF_HOME=/app/data/model_cache
     env_file:
       - .env
     restart: unless-stopped
