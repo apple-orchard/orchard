@@ -3,10 +3,17 @@ Orchard RAG CLI - Main Entry Point
 """
 import argparse
 import sys
+import logging
 from typing import List, Optional
 
 from .helpers import display_helper, api_client
 from .commands import plugins, rag
+
+# Import and setup logging
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from app.core.logging_config import setup_logging
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -105,6 +112,11 @@ Examples:
         "file_path",
         nargs="?",
         help="Path to file to ingest"
+    )
+    ingest_file_parser.add_argument(
+        "--no-smart-chunking",
+        action="store_true",
+        help="Disable smart chunking for PDFs"
     )
     
     # Models commands
@@ -233,7 +245,7 @@ def handle_rag_commands(args: argparse.Namespace) -> None:
     elif args.rag_command == "ingest-text":
         rag.ingest_text(args.text)
     elif args.rag_command == "ingest-file":
-        rag.ingest_file(args.file_path)
+        rag.ingest_file(args.file_path, use_smart_chunking=not args.no_smart_chunking)
     elif args.rag_command == "models":
         rag.list_models()
     elif args.rag_command == "pull-model":
@@ -267,6 +279,10 @@ def handle_plugin_commands(args: argparse.Namespace) -> None:
 
 def main(args: Optional[List[str]] = None) -> int:
     """Main CLI entry point"""
+    # Set up logging
+    log_level = logging.DEBUG if "-v" in (args or sys.argv) or "--verbose" in (args or sys.argv) else logging.INFO
+    setup_logging(level=log_level)
+    
     parser = create_parser()
     parsed_args = parser.parse_args(args)
     

@@ -15,8 +15,12 @@ if ! curl -s http://localhost:8011/health > /dev/null 2>&1; then
     exit 1
 fi
 
-# Check if we have Python 3 available
-if command -v python3 &> /dev/null; then
+# Check for virtual environment first
+if [ -f ".venv/bin/python" ]; then
+    PYTHON_CMD=".venv/bin/python"
+elif [ -f "venv/bin/python" ]; then
+    PYTHON_CMD="venv/bin/python"
+elif command -v python3 &> /dev/null; then
     PYTHON_CMD="python3"
 elif command -v python &> /dev/null; then
     PYTHON_CMD="python"
@@ -26,12 +30,14 @@ else
     exit 1
 fi
 
-# Install requests if not available (minimal requirement for CLI)
-$PYTHON_CMD -c "import requests" 2>/dev/null || {
-    echo -e "${GREEN}Installing required dependency: requests${NC}"
-    $PYTHON_CMD -m pip install --user requests >/dev/null 2>&1
-}
+# Only check/install requests if not using virtual environment
+if [[ ! "$PYTHON_CMD" =~ ^\.?venv/bin/python$ ]]; then
+    $PYTHON_CMD -c "import requests" 2>/dev/null || {
+        echo -e "${GREEN}Installing required dependency: requests${NC}"
+        $PYTHON_CMD -m pip install --user requests >/dev/null 2>&1
+    }
+fi
 
-# Run the standalone CLI with the local Python
+# Run the standalone CLI with the appropriate Python
 # The API URL defaults to localhost:8011 which is correct for containerized API
 $PYTHON_CMD orchard_cli_standalone.py "$@" 

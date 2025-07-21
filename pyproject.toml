@@ -3,7 +3,7 @@ name = "orchard"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "chromadb>=1.0.15",
     "fastapi>=0.116.1",
@@ -25,8 +25,11 @@ dependencies = [
     "llama-index-core>=0.11.23",
     "llama-index-readers-github>=0.2.0",
     "llama-index-readers-web>=0.1.0",
+    "llama-index-readers-google>=0.2.0",
     "llama-index-embeddings-huggingface>=0.3.1",
     "llama-index-vector-stores-chroma>=0.3.0",
     "gitpython>=3.1.43",
     "beautifulsoup4>=4.12.3",
+    "pymupdf>=1.24.0",
+    "pymupdf4llm>=0.0.2",
 ]

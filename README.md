@@ -5,8 +5,11 @@ A full-stack RAG (Retrieval-Augmented Generation) system with a Python backend a
 ## Features
 
 ### Backend Features
-- **Document Ingestion**: Support for PDF, DOCX, and TXT files
-- **Intelligent Chunking**: Automatic text splitting with configurable chunk sizes
+- **Document Ingestion**: Support for PDF, DOCX, TXT, Markdown, and 40+ code file formats
+- **Intelligent Chunking**: Smart parsing for different file types:
+  - **Markdown**: Header-based splitting preserving document hierarchy
+  - **Code**: Language-aware chunking respecting function/class boundaries
+  - **Documents**: Configurable text splitting with overlap
 - **Vector Storage**: ChromaDB for efficient embedding storage and retrieval
 - **RAG Workflow**: Combines document retrieval with local Ollama models
 - **REST API**: FastAPI-based endpoints for easy integration
@@ -15,6 +18,7 @@ A full-stack RAG (Retrieval-Augmented Generation) system with a Python backend a
 - **Health Monitoring**: Built-in health checks and system testing
 - **Hot Reloading**: Development mode with automatic code reload
 - **Command Line Interface**: Comprehensive CLI for system management and plugin operations
+- **Plugin System**: Extensible plugin architecture with Google Drive integration
 
 ### Frontend Features
 - **Modern Chat Interface**: TypeScript-based chat interface with Tailwind CSS
@@ -32,6 +36,12 @@ A full-stack RAG (Retrieval-Augmented Generation) system with a Python backend a
 - Ollama installed and running locally
 - Docker (optional, for containerized deployment)
 - Node.js 18+ (for frontend development)
+
+### Additional Plugin Requirements
+
+For Google Drive plugin:
+- Google Cloud Project with Drive API enabled
+- `llama-index-readers-google>=0.2.0` (automatically installed with `uv sync`)
 
 ## Quick Start
 
@@ -199,6 +209,7 @@ docker-compose up -d
 Configure the application by editing the `.env` file:
 
 ```env
+# Core Settings
 OLLAMA_HOST=http://localhost:11434
 OLLAMA_MODEL=llama3.1:8b
 CHROMA_DB_PATH=./chroma_db
@@ -208,7 +219,16 @@ CHUNK_OVERLAP=200
 MAX_TOKENS=500
 TEMPERATURE=0.7
 MAX_RETRIEVED_CHUNKS=5
+
+# Google Drive Plugin (optional)
+GOOGLE_SERVICE_ACCOUNT_FILE=/path/to/service-account.json
+# OR for OAuth:
+# GOOGLE_CLIENT_ID=your-client-id
+# GOOGLE_CLIENT_SECRET=your-client-secret
+# GOOGLE_REFRESH_TOKEN=your-refresh-token
 ```
+
+Plugin configuration is managed in `rag_config.yaml`. See the Google Drive Plugin section for detailed setup instructions.
 
 ### Configuration Options
 
@@ -406,6 +426,249 @@ chmod +x orchard
 ./orchard rag query "What are the main features of this repository?"
 ```
 
+## Google Drive Plugin
+
+The Orchard RAG system includes a Google Drive plugin that enables ingestion of documents from Google Drive, supporting Google Docs, Sheets, Presentations, and various other file formats.
+
+### Google Drive Plugin Features
+
+- **Multiple Authentication Methods**: OAuth 2.0 and Service Account support
+- **Flexible File Selection**: Ingest entire drives, specific folders, or filtered file types
+- **Google Native Format Support**: Automatic conversion of Google Docs, Sheets, and Presentations
+- **Standard File Support**: PDFs, Office documents, text files, and more
+- **Incremental Sync**: Only process changed files on subsequent syncs
+- **Pattern Filtering**: Include/exclude files based on name patterns
+- **Shared Drive Support**: Access both personal and shared drives
+- **Metadata Enrichment**: Preserve file metadata like owners, sharing status, and folder paths
+
+### Google Drive Setup Prerequisites
+
+1. **Google Cloud Project with Drive API enabled**
+2. **Either OAuth credentials OR Service Account key**
+3. **Proper permissions for the folders/files you want to access**
+
+### Step-by-Step Google Drive Setup
+
+#### Step 1: Enable Google Drive API
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Select your project (or create a new one)
+3. Navigate to **APIs & Services** > **Library**
+4. Search for **"Google Drive API"**
+5. Click on it and press **"Enable"**
+
+> **Important**: If you skip this step, you'll get an error like "Google Drive API has not been used in project before or it is disabled"
+
+#### Step 2A: Service Account Setup (Recommended for Production)
+
+1. **Create Service Account:**
+   - In Google Cloud Console, go to **IAM & Admin** > **Service Accounts**
+   - Click **"Create Service Account"**
+   - Give it a name (e.g., "orchard-drive-reader")
+   - Click **"Create and Continue"**
+   - Skip the optional steps and click **"Done"**
+
+2. **Download Service Account Key:**
+   - Click on the service account you just created
+   - Go to the **"Keys"** tab
+   - Click **"Add Key"** > **"Create new key"**
+   - Choose **JSON** format
+   - Save the downloaded file securely (e.g., `google-service-account.json`)
+
+3. **Share Google Drive Folders:**
+   - Go to Google Drive
+   - Right-click the folder you want to share
+   - Click **"Share"**
+   - Add the service account email (e.g., `orchard-drive-reader@your-project.iam.gserviceaccount.com`)
+   - Give it **"Viewer"** permissions
+
+#### Step 2B: OAuth Setup (Alternative for Personal Use)
+
+1. **Create OAuth Credentials:**
+   - In Google Cloud Console, go to **APIs & Services** > **Credentials**
+   - Click **"Create Credentials"** > **"OAuth client ID"**
+   - Choose **"Desktop app"** as application type
+   - Download the credentials JSON
+
+2. **Generate Refresh Token:**
+   - Use the [OAuth Playground](https://developers.google.com/oauthplayground/)
+   - Authorize the Drive API scope: `https://www.googleapis.com/auth/drive.readonly`
+   - Exchange authorization code for refresh token
+
+#### Step 3: Configure Environment Variables
+
+Add to your `.env` file:
+
+```bash
+# For Service Account (recommended)
+GOOGLE_SERVICE_ACCOUNT_FILE=/path/to/your/service-account-key.json
+
+# OR for OAuth
+GOOGLE_CLIENT_ID=your_client_id_here
+GOOGLE_CLIENT_SECRET=your_client_secret_here
+GOOGLE_REFRESH_TOKEN=your_refresh_token_here
+```
+
+#### Step 4: Configure the Plugin
+
+Edit your `rag_config.yaml`:
+
+**Service Account Configuration:**
+```yaml
+google_drive:
+  enabled: true
+  auth_type: "service_account"
+  config:
+    service_account_config:
+      key_file: "${GOOGLE_SERVICE_ACCOUNT_FILE}"
+    sources:
+      - id: "my-docs"
+        name: "My Documents"
+        folder_id: "your-folder-id-here"  # Get from folder URL
+        file_types:
+          - "document"
+          - "spreadsheet"
+          - "pdf"
+        exclude_patterns:
+          - "*.tmp"
+          - "~$*"
+        sync_mode: "incremental"
+```
+
+**OAuth Configuration:**
+```yaml
+google_drive:
+  enabled: true
+  auth_type: "oauth"
+  config:
+    oauth_config:
+      client_id: "${GOOGLE_CLIENT_ID}"
+      client_secret: "${GOOGLE_CLIENT_SECRET}"
+      refresh_token: "${GOOGLE_REFRESH_TOKEN}"
+    sources:
+      - id: "my-drive"
+        name: "My Drive"
+        drive_id: "root"
+        folder_id: null
+        file_types: ["document", "spreadsheet", "pdf"]
+        sync_mode: "incremental"
+```
+
+#### Step 5: Test the Connection
+
+```bash
+# Reload configuration
+./orchard rag reload
+
+# List Google Drive sources
+./orchard plugins sources google_drive
+
+# Trigger ingestion
+./orchard plugins ingest google_drive
+```
+
+### Getting Folder IDs
+
+To find a Google Drive folder ID:
+1. Navigate to the folder in Google Drive
+2. Look at the URL: `https://drive.google.com/drive/folders/YOUR_FOLDER_ID_HERE`
+3. Copy the ID after `/folders/`
+
+### Supported File Types
+
+**Google Native Formats** (automatically converted):
+- Google Docs → Text/Markdown
+- Google Sheets → CSV/Text
+- Google Slides → Text
+- Google Drawings → Text description
+
+**Standard Formats**:
+- PDF files
+- Microsoft Office documents (Word, Excel, PowerPoint)
+- Text files (TXT, CSV, Markdown)
+- And more...
+
+### Common Issues and Solutions
+
+#### 1. "Google Drive API has not been used in project"
+**Solution**: Enable the Google Drive API in Google Cloud Console (see Step 1)
+
+#### 2. "Empty string for key_file" or Configuration Not Loading
+**Solution**: 
+- Check for spaces before environment variable names in `.env`
+- Ensure the path to the service account file is correct
+- Reload configuration: `./orchard rag reload`
+
+#### 3. "Service account config not found"
+**Solution**: Check your `rag_config.yaml` indentation. `service_account_config` should be at the same level as `oauth_config`, not nested inside it.
+
+#### 4. No Files Found During Ingestion
+**Solution**:
+- Verify the folder is shared with the service account email
+- Check the folder_id is correct
+- Ensure file_types includes the formats you want
+- Verify files aren't filtered out by exclude_patterns
+
+#### 5. "NoneType object is not iterable"
+**Solution**: This usually means the API returned no documents. Check:
+- Service account has access to the folder
+- Folder ID is correct
+- Files exist in the folder
+
+### Example: Complete Setup for Service Account
+
+1. **Create service account** in Google Cloud Console
+2. **Download JSON key** and save as `google-service-account.json`
+3. **Share your Google Drive folder** with the service account email
+4. **Add to `.env`**:
+   ```bash
+   GOOGLE_SERVICE_ACCOUNT_FILE=./google-service-account.json
+   ```
+5. **Add to `rag_config.yaml`**:
+   ```yaml
+   google_drive:
+     enabled: true
+     auth_type: "service_account"
+     config:
+       service_account_config:
+         key_file: "${GOOGLE_SERVICE_ACCOUNT_FILE}"
+       sources:
+         - id: "shared-docs"
+           name: "Shared Documents"
+           folder_id: "1a2b3c4d5e6f7g8h9i0j"
+           file_types: ["document", "spreadsheet", "pdf"]
+           sync_mode: "incremental"
+   ```
+6. **Restart or reload**:
+   ```bash
+   # If using Docker
+   docker-compose -f docker-compose.dev.yml restart api
+   
+   # Then reload config
+   ./orchard rag reload
+   ```
+7. **Ingest documents**:
+   ```bash
+   ./orchard plugins ingest google_drive
+   ```
+
+### Monitoring Ingestion Progress
+
+The CLI provides detailed progress monitoring:
+```bash
+# Start ingestion and monitor
+./orchard plugins ingest google_drive
+
+# Check status of a specific job
+./orchard plugins status google_drive <job-id>
+```
+
+The CLI will show:
+- Progress bar with percentage
+- Number of documents processed
+- Current document being processed
+- Any errors encountered
+
 ## Usage Examples
 
 ### Using the Web Interface
@@ -450,9 +713,20 @@ curl -X POST "http://localhost:8011/query" \
 #### 3. Upload a File
 
 ```bash
+# Upload a PDF
 curl -X POST "http://localhost:8011/ingest" \
   -F "file=@document.pdf" \
   -F "metadata={\"category\": \"technical_docs\"}"
+
+# Upload a Markdown file
+curl -X POST "http://localhost:8011/ingest" \
+  -F "file=@README.md" \
+  -F "metadata={\"category\": \"documentation\"}"
+
+# Upload a Python file
+curl -X POST "http://localhost:8011/ingest" \
+  -F "file=@main.py" \
+  -F "metadata={\"category\": \"source_code\", \"project\": \"backend\"}"
 ```
 
 #### 4. Check System Health
@@ -501,11 +775,25 @@ orchard/
 │   ├── tsconfig.json        # TypeScript configuration
 │   ├── Dockerfile          # Production frontend Docker config
 │   └── Dockerfile.dev      # Development frontend Docker config
+├── plugins/                 # Plugin system
+│   ├── base.py             # Base plugin classes
+│   ├── config.py           # Plugin configuration
+│   ├── registry.py         # Plugin registry
+│   ├── github/             # GitHub plugin
+│   │   ├── plugin.py       # GitHub ingestion logic
+│   │   ├── models.py       # Data models
+│   │   └── README.md       # GitHub plugin docs
+│   └── google_drive/       # Google Drive plugin
+│       ├── plugin.py       # Drive ingestion logic
+│       ├── reader.py       # Document reader
+│       ├── models.py       # Data models
+│       ├── config_schema.py # Configuration schema
+│       └── README.md       # Drive plugin docs
 ├── main.py                  # Backend entry point
 ├── orchard                  # CLI wrapper script
 ├── orchard_cli.py           # CLI entry point
 ├── orchard_cli_standalone.py # Standalone CLI (no dependencies)
-├── requirements.txt         # Python dependencies
+├── pyproject.toml          # Python dependencies (uv)
 ├── docker-compose.yml      # Production Docker setup
 ├── docker-compose.dev.yml  # Development Docker setup
 ├── dev.sh                  # Development workflow script
@@ -580,10 +868,31 @@ curl -X POST "http://localhost:8011/query" \
 
 ## Supported File Formats
 
+### Document Formats
 - **PDF**: `.pdf` files
 - **Word Documents**: `.docx`, `.doc` files
 - **Text Files**: `.txt` files
+- **Markdown**: `.md`, `.markdown` files (with intelligent header-based chunking)
 - **Raw Text**: Direct text input via API
+
+### Code Formats (with language-aware chunking)
+- **Python**: `.py`
+- **JavaScript/TypeScript**: `.js`, `.ts`, `.jsx`, `.tsx`
+- **Java**: `.java`
+- **C/C++**: `.c`, `.cpp`, `.h`, `.hpp`
+- **C#**: `.cs`
+- **Go**: `.go`
+- **Rust**: `.rs`
+- **Ruby**: `.rb`
+- **PHP**: `.php`
+- **Swift**: `.swift`
+- **Kotlin**: `.kt`
+- **And many more**: SQL, Shell scripts, YAML, JSON, HTML, CSS, etc.
+
+### Smart Chunking Features
+- **Markdown Files**: Intelligent header-based splitting that preserves document structure
+- **Code Files**: Language-aware chunking that respects function/class boundaries
+- **Automatic Fallback**: Uses appropriate chunking method based on file type
 
 ## API Documentation
 

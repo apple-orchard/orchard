@@ -12,11 +12,15 @@ logger = logging.getLogger(__name__)
 from app.core.config import settings
 from app.models.schemas import (
     QueryRequest, QueryResponse, IngestRequest, IngestResponse,
-    HealthResponse
+    HealthResponse, SystemPromptRequest, SystemPromptResponse
 )
 from app.services.rag_service import rag_service
 from app.services.plugin_service import plugin_service
 from app.api.plugins import router as plugins_router
+from app.core.logging_config import setup_logging
+
+# Set up logging
+setup_logging()
 
 # Create FastAPI app
 app = FastAPI(
@@ -184,6 +188,25 @@ async def test_system():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+@app.get("/system-prompt", response_model=SystemPromptResponse)
+async def get_system_prompt():
+    """Get the current system prompt"""
+    try:
+        return SystemPromptResponse(system_prompt=settings.system_prompt)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.post("/system-prompt", response_model=SystemPromptResponse)
+async def update_system_prompt(request: SystemPromptRequest):
+    """Update the system prompt"""
+    try:
+        # Update the settings
+        settings.system_prompt = request.system_prompt
+        logger.info("System prompt updated")
+        return SystemPromptResponse(system_prompt=settings.system_prompt)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 @app.post("/reload-config")
 async def reload_configuration():
     """Reload configuration from file"""
@@ -236,7 +259,7 @@ async def ingest_file_simple(request: IngestRequest):
         if os.path.isdir(request.file_path):
             result = rag_service.ingest_directory(request.file_path, True, request.metadata)
         else:
-            result = rag_service.ingest_file(request.file_path, request.metadata)
+            result = rag_service.ingest_file(request.file_path, request.metadata, request.use_smart_chunking)
 
         return IngestResponse(
             success=result["success"],

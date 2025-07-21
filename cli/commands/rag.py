@@ -199,7 +199,7 @@ def ingest_text(text: str = None, metadata: Dict[str, Any] = None) -> None:
         display_helper.print_error(f"Failed to ingest text: {e}")
 
 
-def ingest_file(file_path: str, metadata: Dict[str, Any] = None) -> None:
+def ingest_file(file_path: str, metadata: Dict[str, Any] = None, use_smart_chunking: bool = True) -> None:
     """Ingest a file"""
     try:
         if not file_path:
@@ -210,7 +210,8 @@ def ingest_file(file_path: str, metadata: Dict[str, Any] = None) -> None:
             return
         
         data = {
-            "file_path": file_path
+            "file_path": file_path,
+            "use_smart_chunking": use_smart_chunking
         }
         
         if metadata:

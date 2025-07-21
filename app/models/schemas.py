@@ -15,6 +15,7 @@ class IngestRequest(BaseModel):
     file_path: Optional[str] = None
     text_content: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    use_smart_chunking: bool = True
     
 class IngestResponse(BaseModel):
     success: bool
@@ -30,4 +31,10 @@ class DocumentChunk(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     timestamp: datetime
-    version: str 
+    version: str
+
+class SystemPromptRequest(BaseModel):
+    system_prompt: str
+
+class SystemPromptResponse(BaseModel):
+    system_prompt: str 

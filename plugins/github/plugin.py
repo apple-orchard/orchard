@@ -169,10 +169,11 @@ class GithubIngestionPlugin(IngestionPlugin):
             self.update_job(job_id, metadata={
                 **self._jobs[job_id].metadata,
                 "current_action": "chunking",
-                "details": f"Creating chunks from {len(documents)} documents"
+                "details": f"Creating chunks from {len(documents)} documents (using smart chunking)"
             })
             
             # Convert to chunks
+            self.logger.info(f"Converting {len(documents)} documents to chunks...")
             source_metadata = convert_github_metadata({
                 "owner": repo.owner,
                 "repo": repo.repo,
@@ -180,6 +181,13 @@ class GithubIngestionPlugin(IngestionPlugin):
             })
             
             chunks = convert_llama_doc_to_chunks(documents, source_metadata)
+            self.logger.info(f"Created {len(chunks)} chunks from {len(documents)} documents")
+            
+            # Update status with chunking results
+            self.update_job(job_id, metadata={
+                **self._jobs[job_id].metadata,
+                "details": f"Created {len(chunks)} chunks from {len(documents)} documents"
+            })
             
             # Update status: storing
             self.update_job(job_id, 

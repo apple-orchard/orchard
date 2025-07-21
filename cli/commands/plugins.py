@@ -160,9 +160,14 @@ def monitor_job(plugin_name: str, job_id: str) -> None:
                 total = response.get("total_documents", 0)
                 processed = response.get("processed_documents", 0)
                 failed = response.get("failed_documents", 0)
+                metadata = response.get("metadata", {})
+                details = metadata.get("details", "")
 
                 # Clear line and show progress
-                print(f"\rStatus: {status.upper()} | Processed: {processed}/{total} | Failed: {failed}", end="", flush=True)
+                progress_line = f"\rStatus: {status.upper()} | Processed: {processed}/{total} | Failed: {failed}"
+                if details:
+                    progress_line += f" | {details}"
+                print(progress_line, end="", flush=True)
 
                 if status in ["completed", "failed", "cancelled"]:
                     print()  # New line

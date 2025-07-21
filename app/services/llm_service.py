@@ -95,14 +95,9 @@ class LLMService:
 
     def _create_prompt(self, question: str, context: str) -> str:
         """Create a prompt for the LLM"""
-        return dedent(f"""
-            Based on the following context, please answer the question. If the context doesn't contain enough information to answer the question, please say so.
-            Context:
-            {context}
-
-            Question: {question}
-
-            Answer:""")
+        # Use the system prompt from settings
+        prompt_template = settings.system_prompt
+        return prompt_template.format(context=context, question=question)
 
     def _prepare_sources(self, metadata_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Prepare sources information from metadata"""

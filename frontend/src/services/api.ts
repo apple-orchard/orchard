@@ -247,6 +247,28 @@ export const apiUtils = {
       throw new Error(error.response?.data?.detail || 'System test failed');
     }
   },
+
+  // Get system prompt
+  getSystemPrompt: async (): Promise<{ system_prompt: string }> => {
+    try {
+      const response: AxiosResponse<{ system_prompt: string }> = await api.get('/system-prompt');
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to get system prompt');
+    }
+  },
+
+  // Update system prompt
+  updateSystemPrompt: async (systemPrompt: string): Promise<{ system_prompt: string }> => {
+    try {
+      const response: AxiosResponse<{ system_prompt: string }> = await api.post('/system-prompt', {
+        system_prompt: systemPrompt,
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to update system prompt');
+    }
+  },
 };
 
 export default api; 

@@ -5,6 +5,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Import prompt config manager
+from app.core.prompt_config import prompt_config
+
 class Settings(BaseSettings):
     # Ollama Configuration
     ollama_host: str = "http://localhost:11434"
@@ -24,6 +27,16 @@ class Settings(BaseSettings):
     max_tokens: int = 500
     temperature: float = 0.7
     max_retrieved_chunks: int = 5
+    
+    @property
+    def system_prompt(self) -> str:
+        """Get system prompt from persistent config."""
+        return prompt_config.get_system_prompt()
+    
+    @system_prompt.setter
+    def system_prompt(self, value: str):
+        """Set system prompt in persistent config."""
+        prompt_config.set_system_prompt(value)
     
     # API Configuration
     api_title: str = "RAG API"

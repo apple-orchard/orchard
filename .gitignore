@@ -40,6 +40,7 @@ node_modules/
 /frontend/yarn-debug.log*
 /frontend/yarn-error.log*
 .DS_Store
+llamahive-ff2a8bfb9a69.json
 
 # ChromaDB
 chroma_db/

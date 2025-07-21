@@ -250,8 +250,12 @@ def monitor_job(plugin_name: str, job_id: str):
                 
                 status_line += f" | Rate: {rate:.1f} docs/s{eta}"
                 
+                # Add details if available
+                if metadata.get("details"):
+                    status_line += f" | {metadata['details']}"
+                
                 # Clear current line and print status
-                sys.stdout.write('\r' + ' ' * 80 + '\r')  # Clear line
+                sys.stdout.write('\r' + ' ' * 120 + '\r')  # Clear line (wider for details)
                 sys.stdout.write(status_line)
                 sys.stdout.flush()
                 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import ChatBox from './components/ChatBox';
 import DocumentUpload from './components/DocumentUpload';
 import PluginDashboard from './components/PluginDashboard';
+import PromptEditor from './components/PromptEditor';
 import { Message, FileUploadResponse } from './types';
 
 const App: React.FC = () => {
@@ -72,8 +73,9 @@ const App: React.FC = () => {
             />
           </div>
           
-          <div className="order-1 md:order-2 w-full md:w-80 bg-white rounded-lg shadow-lg p-4 md:p-5 h-fit">
+          <div className="order-1 md:order-2 w-full md:w-80 space-y-4">
             <DocumentUpload onUploadComplete={handleUploadComplete} />
+            <PromptEditor />
           </div>
         </main>
       ) : (

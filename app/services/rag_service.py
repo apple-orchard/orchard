@@ -1,8 +1,12 @@
+import logging
 from typing import List, Dict, Any, Optional
 from app.utils.database import chroma_db
 from app.services.llm_service import llm_service
 from app.utils.document_processor import document_processor
 from app.core.config import settings
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 class RAGService:
     def __init__(self):
@@ -90,19 +94,23 @@ class RAGService:
                 "chunks_created": 0
             }
     
-    def ingest_file(self, file_path: str, additional_metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def ingest_file(self, file_path: str, additional_metadata: Optional[Dict[str, Any]] = None,
+                    use_smart_chunking: bool = True) -> Dict[str, Any]:
         """Ingest a file into the knowledge base"""
+        logger.info(f"Starting file ingestion: {file_path}")
         try:
             # Process the file
-            chunks = self.document_processor.process_file(file_path, additional_metadata)
+            chunks = self.document_processor.process_file(file_path, additional_metadata, use_smart_chunking)
             
             # Extract content and metadata for ChromaDB
             chunk_contents = [chunk["content"] for chunk in chunks]
             chunk_metadatas = [chunk["metadata"] for chunk in chunks]
             
             # Add to ChromaDB
+            logger.info(f"Adding {len(chunks)} chunks to ChromaDB")
             chunk_ids = self.chroma_db.add_documents(chunk_contents, chunk_metadatas)
             
+            logger.info(f"Successfully ingested file: {file_path} ({len(chunks)} chunks)")
             return {
                 "success": True,
                 "message": f"File '{file_path}' ingested successfully",
