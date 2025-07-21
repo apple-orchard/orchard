@@ -1,0 +1,28 @@
+# fly.toml app configuration file generated for orchard-ollama on 2025-07-21T14:41:45-04:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'orchard-ollama'
+primary_region = 'iad'
+
+[build]
+  image = 'ollama/ollama:latest'
+
+[env]
+  OLLAMA_HOST = '0.0.0.0'
+  OLLAMA_MODELS = '/data/ollama'
+
+[[mounts]]
+  source = 'ollama_models'
+  destination = '/data/ollama'
+  initial_size = '50gb'
+
+[http_service]
+  internal_port = 11434
+  auto_stop_machines = 'off'
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = 'performance-2x'

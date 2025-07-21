@@ -43,6 +43,9 @@ chroma_db/
 # Documents (will be mounted as volume)
 documents/
 
+# Model cache (will be mounted as volume)
+model_cache/
+
 # Logs
 *.log
 logs/

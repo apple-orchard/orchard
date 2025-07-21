@@ -7,17 +7,52 @@ app = 'orchard'
 primary_region = 'iad'
 
 [build]
+  build-target = "production"
+
+[env]
+  PYTHONPATH = "/app"
+  CHROMA_DB_PATH = "/app/data/chroma_db"
+  EMBEDDING_MODEL = "all-mpnet-base-v2"
+  CHUNK_SIZE = "1500"
+  CHUNK_OVERLAP = "300"
+  MAX_TOKENS = "500"
+  TEMPERATURE = "0.7"
+  MAX_RETRIEVED_CHUNKS = "5"
+  TRANSFORMERS_CACHE = "/app/data/model_cache"
+  SENTENCE_TRANSFORMERS_HOME = "/app/data/model_cache"
+  HF_HOME = "/app/data/model_cache"
+  OLLAMA_HOST = "http://orchard-ollama.flycast:11434"
+  OLLAMA_MODEL = "llama3.1:8b"
 
 [http_service]
-  internal_port = 8080
+  internal_port = 8011
   force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
-  processes = ['app']
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 20
+    hard_limit = 50
+
+[[http_service.checks]]
+  grace_period = "60s"
+  interval = "30s"
+  method = "GET"
+  timeout = "10s"
+  path = "/health"
+
+[deploy]
+  wait_timeout = "15m"
+  strategy = "rolling"
 
 [[vm]]
-  memory = '1gb'
-  cpu_kind = 'shared'
-  cpus = 1
-  memory_mb = 1024
+  memory = '8gb'
+  cpu_kind = 'performance'
+  cpus = 4
+
+[[mounts]]
+  source = "orchard_data"
+  destination = "/app/data"
+  initial_size = "20gb"
