@@ -409,7 +409,10 @@ async def ingest_batch_messages(request: BatchIngestRequest, sync: bool = False)
         # Convert pydantic models to dicts
         messages_dict = [{"text": doc.content.text, "metadata": doc.metadata} for doc in request.documents]
 
-        job_id = rag_service.ingest_batch_async(messages_dict, request.batch_metadata)
+        # Convert BatchMetadata to dict
+        batch_metadata_dict = request.batch_metadata.model_dump() if request.batch_metadata else None
+
+        job_id = rag_service.ingest_batch_async(messages_dict, batch_metadata_dict)
 
         job = job_manager.get_job(job_id)
         if not job:
@@ -625,9 +628,12 @@ async def ingest_batch_async(request: BatchIngestRequest):
     """Start an async batch ingestion job."""
     try:
         # Convert pydantic models to dicts
-        messages_dict = [{"text": msg.text, "metadata": msg.metadata} for msg in request.messages]
+        messages_dict = [{"text": doc.content.text, "metadata": doc.metadata} for doc in request.documents]
 
-        job_id = rag_service.ingest_batch_async(messages_dict, request.metadata)
+        # Convert BatchMetadata to dict
+        batch_metadata_dict = request.batch_metadata.model_dump() if request.batch_metadata else None
+
+        job_id = rag_service.ingest_batch_async(messages_dict, batch_metadata_dict)
 
         job = job_manager.get_job(job_id)
         if not job:
