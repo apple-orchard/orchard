@@ -80,10 +80,40 @@ class SlackExportStreamer:
         self.session = requests.Session()
         self.dry_run = dry_run
         self.dry_run_file = dry_run_file
+        self.progress_file = "slack_export_progress.json"
         
         # Set up authentication if API key provided
         if api_key:
             self.session.headers.update({'Authorization': f'Bearer {api_key}'})
+    
+    def save_progress(self, current_batch: int, total_batches: int, current_channel: str, processed_channels: List[str], 
+                     current_channel_batch: int = 0):
+        """Save current progress to file"""
+        progress = {
+            "current_batch": current_batch,
+            "total_batches": total_batches,
+            "current_channel": current_channel,
+            "processed_channels": processed_channels,
+            "current_channel_batch": current_channel_batch,
+            "timestamp": datetime.now().isoformat()
+        }
+        with open(self.progress_file, 'w') as f:
+            json.dump(progress, f, indent=2)
+    
+    def load_progress(self) -> Optional[Dict]:
+        """Load progress from file if it exists"""
+        if os.path.exists(self.progress_file):
+            try:
+                with open(self.progress_file, 'r') as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, FileNotFoundError):
+                pass
+        return None
+    
+    def clear_progress(self):
+        """Clear progress file after successful completion"""
+        if os.path.exists(self.progress_file):
+            os.remove(self.progress_file)
     
     def extract_zip(self, zip_path: str, extract_to: str) -> str:
         """Extract zip file and return extraction path"""
@@ -166,23 +196,32 @@ class SlackExportStreamer:
         }
         if self.dry_run:
             with open(self.dry_run_file, "a", encoding="utf-8") as f:
-                f.write(f"\n--- Batch ---\n")
+                f.write(f"\n--- Batch {batch_number} ---\n")
                 f.write(json.dumps(payload, ensure_ascii=False, indent=2))
                 f.write("\n")
-            print(f"[DRY RUN] Wrote batch of {len(filtered_data)} messages to {self.dry_run_file}")
+            print(f"[DRY RUN] Wrote batch {batch_number} of {len(filtered_data)} messages to {self.dry_run_file}")
             return True
         try:
             response = self.session.post(url, json=payload)
             response.raise_for_status()
-            print(f"Successfully sent batch of {len(filtered_data)} messages to API")
+            print(f"Successfully sent batch {batch_number} of {len(filtered_data)} messages to API")
             return True
         except requests.exceptions.RequestException as e:
-            print(f"Error sending to API: {e}")
+            print(f"Error sending batch {batch_number} to API: {e}")
             return False
     
     def process_export(self, zip_path: str, batch_size: int = 100, 
-                      delay: float = 0.1) -> None:
+                      delay: float = 0.1, resume: bool = False) -> None:
         """Main processing function"""
+        # Check for existing progress
+        progress = self.load_progress() if resume else None
+        if progress and resume:
+            print(f"Resuming from batch {progress['current_batch']} of {progress['total_batches']}")
+            print(f"Last processed channel: {progress['current_channel']}")
+            print(f"Processed channels: {', '.join(progress['processed_channels'])}")
+            if progress.get('current_channel_batch', 0) > 0:
+                print(f"Resuming from batch {progress['current_channel_batch']} within channel {progress['current_channel']}")
+        
         # Create temporary extraction directory
         extract_path = tempfile.mkdtemp(prefix="slack_export_")
         
@@ -196,28 +235,69 @@ class SlackExportStreamer:
             
             print(f"Found {len(channels)} channels and {len(users)} users")
             
-            batch_number = 1
-            batches = []
-            # Process each channel
+            # Initialize progress tracking
+            current_batch = progress['current_batch'] if progress and resume else 1
+            processed_channels = progress['processed_channels'] if progress and resume else []
+            current_channel_batch = progress.get('current_channel_batch', 0) if progress and resume else 0
+            
+            # Count remaining batches to process
+            remaining_batches = 0
+            print("Counting remaining batches...")
             for channel_id, channel_name in channels.items():
+                if resume and channel_name in processed_channels:
+                    continue
+                for batch in self.stream_channel_messages(extract_path, channel_name, users, batch_size):
+                    if batch:
+                        remaining_batches += 1
+            
+            # Calculate total batches (already processed + remaining)
+            total_batches = (current_batch - 1) + remaining_batches
+            
+            # Second pass: process and send batches
+            print(f"Processing {remaining_batches} remaining batches (total: {total_batches})...")
+            batch_counter = current_batch - 1  # Start from the last completed batch
+            
+            for channel_id, channel_name in channels.items():
+                if resume and channel_name in processed_channels:
+                    print(f"Skipping already processed channel: {channel_name}")
+                    continue
+                
                 print(f"\nProcessing channel: {channel_name}")
+                channel_batch_counter = 0
+                
                 # Stream messages in batches
                 for batch in self.stream_channel_messages(extract_path, channel_name, users, batch_size):
                     if batch:
-                        batches.append(batch)
-            total_batches = len(batches)
-            for idx, batch in enumerate(batches):
-                is_final_batch = (idx == total_batches - 1)
-                success = self.send_to_api(batch, idx + 1, is_final_batch)
-                if not success:
-                    print(f"Failed to send batch {idx + 1}")
-                if delay > 0:
-                    time.sleep(delay)
+                        batch_counter += 1
+                        channel_batch_counter += 1
+                        is_final_batch = (batch_counter == total_batches)
+                        
+                        # Skip batches that were already processed in this channel
+                        if resume and progress and channel_name == progress['current_channel'] and channel_batch_counter <= current_channel_batch:
+                            print(f"Skipping already processed batch {channel_batch_counter} in channel {channel_name}")
+                            continue
+                        
+                        # Save progress before sending
+                        self.save_progress(batch_counter, total_batches, channel_name, processed_channels, channel_batch_counter)
+                        
+                        success = self.send_to_api(batch, batch_counter, is_final_batch)
+                        if not success:
+                            print(f"Failed to send batch {batch_counter}. Progress saved. You can resume later.")
+                            return
+                        
+                        if delay > 0:
+                            time.sleep(delay)
+                
+                # Mark channel as processed
+                processed_channels.append(channel_name)
+                self.save_progress(batch_counter, total_batches, channel_name, processed_channels, 0)
+            
+            # Clear progress file on successful completion
+            self.clear_progress()
             print("\nExport processing completed!")
             
         finally:
             # Clean up temporary files
-            
             if os.path.exists(extract_path):
                 shutil.rmtree(extract_path)
 
@@ -232,6 +312,7 @@ def main():
                        help='Delay between API calls in seconds (default: 0.1)')
     parser.add_argument('--dry-run', action='store_true', help='Write payloads to a file instead of sending to API')
     parser.add_argument('--dry-run-file', default='dry_run_output.txt', help='File to write dry-run payloads (default: dry_run_output.txt)')
+    parser.add_argument('--resume', action='store_true', help='Resume from last saved progress')
     
     args = parser.parse_args()
     
@@ -248,10 +329,12 @@ def main():
         streamer.process_export(
             args.zip_file, 
             batch_size=args.batch_size,
-            delay=args.delay
+            delay=args.delay,
+            resume=args.resume
         )
     except KeyboardInterrupt:
-        print("\nProcess interrupted by user")
+        print("\nProcess interrupted by user. Progress has been saved.")
+        print("To resume, run the same command with --resume flag")
         sys.exit(1)
     except Exception as e:
         print(f"Error: {e}")
