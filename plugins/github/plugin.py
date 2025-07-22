@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import uuid
+import logging
 
 from plugins.base import IngestionPlugin, IngestionStatus, IngestionJob
 from plugins.github.models import GitHubConfig, GitHubRepository
@@ -12,6 +13,8 @@ from plugins.github.reader import GitHubReader
 from plugins.llamaindex.converters import convert_llama_doc_to_chunks, convert_github_metadata
 from app.utils.database import chroma_db
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class GithubIngestionPlugin(IngestionPlugin):
@@ -173,7 +176,7 @@ class GithubIngestionPlugin(IngestionPlugin):
             })
             
             # Convert to chunks
-            self.logger.info(f"Converting {len(documents)} documents to chunks...")
+            logger.info("Converting %s documents to chunks...", len(documents))
             source_metadata = convert_github_metadata({
                 "owner": repo.owner,
                 "repo": repo.repo,
@@ -181,7 +184,7 @@ class GithubIngestionPlugin(IngestionPlugin):
             })
             
             chunks = convert_llama_doc_to_chunks(documents, source_metadata)
-            self.logger.info(f"Created {len(chunks)} chunks from {len(documents)} documents")
+            logger.info("Created %s chunks from %s documents", len(chunks), len(documents))
             
             # Update status with chunking results
             self.update_job(job_id, metadata={
@@ -240,11 +243,14 @@ class GithubIngestionPlugin(IngestionPlugin):
             }
             
             # Log the error
-            print(f"ERROR: Ingestion failed for {repo.get_full_name()}")
-            print(f"Error Type: {error_details['error_type']}")
-            print(f"Error Message: {error_details['error_message']}")
-            print(f"Branch: {repo.branch}")
-            print(f"Traceback:\n{error_details['traceback']}")
+            logger.error(
+                "Ingestion failed for %s\nType: %s\nMessage: %s\nBranch: %s\nTraceback:\n%s",
+                repo.get_full_name(),
+                error_details["error_type"],
+                error_details["error_message"],
+                repo.branch,
+                error_details["traceback"],
+            )
             
             # Mark job as failed with detailed error
             self.update_job(

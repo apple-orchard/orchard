@@ -3,6 +3,7 @@
 import os
 import json
 import fnmatch
+import logging
 from typing import List, Dict, Any, Optional, Tuple, Callable
 from datetime import datetime
 from pathlib import Path
@@ -10,8 +11,9 @@ from pathlib import Path
 from llama_index.readers.google import GoogleDriveReader
 from llama_index.core.schema import Document as LlamaDocument
 
-from plugins.google_drive.models import GoogleDriveFile, GoogleDriveSource, AuthType
-from plugins.llamaindex.utils import track_file_changes
+from plugins.google_drive.models import GoogleDriveSource
+
+logger = logging.getLogger(__name__)
 
 
 class GoogleDriveReaderWrapper:
@@ -97,7 +99,7 @@ class GoogleDriveReaderWrapper:
         
         # For folder-based sources with recursive enabled, use recursive traversal
         if source.folder_id and source.recursive:
-            print(f"Starting recursive traversal of folder {source.folder_id}...")
+            logger.info("Starting recursive traversal of folder %s...", source.folder_id)
             
             # Create a Google Drive service client
             from googleapiclient.discovery import build
@@ -121,7 +123,7 @@ class GoogleDriveReaderWrapper:
             
             # Get all files recursively
             all_files = self._get_folder_contents_recursive(source.folder_id, source, service)
-            print(f"Found {len(all_files)} files in folder and subfolders")
+            logger.info("Found %s files in folder and subfolders", len(all_files))
             
             # Update initial progress if callback provided
             if progress_callback:
@@ -144,7 +146,7 @@ class GoogleDriveReaderWrapper:
                         progress_callback(i + 1, len(all_files))
                         
                 except Exception as e:
-                    print(f"Error loading file {file_metadata.get('name', 'Unknown')}: {e}")
+                    logger.warning("Error loading file %s: %s", file_metadata.get('name', 'Unknown'), e)
                     # Still update progress even on error
                     if progress_callback:
                         progress_callback(i + 1, len(all_files))
@@ -180,8 +182,8 @@ class GoogleDriveReaderWrapper:
         
         # Build final query
         query = " and ".join(query_parts) if query_parts else None
-        print(f"Debug: Query string: {query}")
-        print(f"Debug: Folder ID: {source.folder_id}")
+        logger.debug("Query string: %s", query)
+        logger.debug("Folder ID: %s", source.folder_id)
         
         # Load documents
         if source.folder_id:
@@ -197,7 +199,7 @@ class GoogleDriveReaderWrapper:
         
         # Handle None response
         if raw_docs is None:
-            print(f"Warning: Google Drive returned None for folder {source.folder_id}")
+            logger.warning("Google Drive returned None for folder %s", source.folder_id)
             raw_docs = []
         
         # Filter and enrich documents
@@ -258,7 +260,7 @@ class GoogleDriveReaderWrapper:
                         self._enrich_metadata(doc, source)
                         documents.append(doc)
                 except Exception as e:
-                    print(f"Error loading file {file_data.get('name', 'Unknown')}: {e}")
+                    logger.warning("Error loading file %s: %s", file_data.get('name', 'Unknown'), e)
             
             return documents, {
                 "total_files": len(documents),
@@ -268,7 +270,7 @@ class GoogleDriveReaderWrapper:
             }
             
         except Exception as e:
-            print(f"Error during incremental sync: {e}")
+            logger.error("Error during incremental sync: %s", e)
             # Fall back to full sync
             return self._full_sync(source)
     
@@ -340,8 +342,8 @@ class GoogleDriveReaderWrapper:
             self._reader.load_data(query_string="trashed=false")
             return True
         except Exception as e:
-            print(f"Connection test failed: {e}")
-            return False 
+            logger.error("Connection test failed: %s", e)
+            return False
 
     def _get_folder_contents_recursive(self, folder_id: str, source: GoogleDriveSource, service) -> List[Dict[str, Any]]:
         """Recursively get all files from a folder and its subfolders.
@@ -400,7 +402,7 @@ class GoogleDriveReaderWrapper:
                         break
                         
                 except Exception as e:
-                    print(f"Error processing folder {current_folder_id}: {e}")
+                    logger.error("Error processing folder %s: %s", current_folder_id, e)
                     break
         
         return all_files

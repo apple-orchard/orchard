@@ -152,22 +152,3 @@ def convert_github_metadata(repo_info: Dict[str, Any]) -> Dict[str, Any]:
         "commit_sha": repo_info.get('commit_sha', '')
     }
 
-
-def batch_process_documents(
-    documents: List[LlamaDocument],
-    batch_size: int = 100
-) -> List[List[LlamaDocument]]:
-    """Split documents into batches for processing.
-    
-    Args:
-        documents: List of documents to process
-        batch_size: Size of each batch
-        
-    Returns:
-        List of document batches
-    """
-    batches = []
-    for i in range(0, len(documents), batch_size):
-        batch = documents[i:i + batch_size]
-        batches.append(batch)
-    return batches 
