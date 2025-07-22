@@ -45,14 +45,14 @@ class DocumentContent(BaseModel):
     attachments: Optional[List[Attachment]] = None
 
 class DocumentMetadata(BaseModel):
-    timestamp: str  # ISO 8601
-    user_id: str
-    user_name: str
+    timestamp: Optional[str] = None  # ISO 8601
+    user_id: Optional[str] = None
+    user_name: Optional[str] = None
     thread_ts: Optional[str] = None
     parent_message_id: Optional[str] = None
     reactions: Optional[List[Reaction]] = None
     edited_timestamp: Optional[str] = None  # ISO 8601
-    message_type: str  # regular|bot|system
+    message_type: Optional[str] = None  # regular|bot|system
 
 class BatchDocument(BaseModel):
     document_id: str
