@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 import uuid
 import traceback
+import logging
 
 from plugins.base import IngestionPlugin, IngestionStatus, IngestionJob
 from plugins.google_drive.models import GoogleDriveConfig, GoogleDriveSource
@@ -13,6 +14,8 @@ from plugins.google_drive.reader import GoogleDriveReaderWrapper
 from plugins.llamaindex.converters import convert_llama_doc_to_chunks
 from app.utils.database import chroma_db
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class GoogleDriveIngestionPlugin(IngestionPlugin):
@@ -208,9 +211,9 @@ class GoogleDriveIngestionPlugin(IngestionPlugin):
                 "source_id": source.id
             }
             
-            self.logger.info(f"Converting {len(documents)} documents to chunks...")
+            logger.info("Converting %s documents to chunks...", len(documents))
             chunks = convert_llama_doc_to_chunks(documents, source_metadata)
-            self.logger.info(f"Created {len(chunks)} chunks from {len(documents)} documents")
+            logger.info("Created %s chunks from %s documents", len(chunks), len(documents))
             
             # Update status with chunking results
             self.update_job(job_id, metadata={
@@ -281,13 +284,15 @@ class GoogleDriveIngestionPlugin(IngestionPlugin):
             }
             
             # Log the error
-            print(f"ERROR: Ingestion failed for {source.get_display_name()}")
-            print(f"Error Type: {error_details['error_type']}")
-            print(f"Error Message: {error_details['error_message']}")
-            print(f"Drive ID: {source.drive_id}")
-            if source.folder_id:
-                print(f"Folder ID: {source.folder_id}")
-            print(f"Traceback:\n{error_details['traceback']}")
+            logger.error(
+                "Ingestion failed for %s\nType: %s\nMessage: %s\nDrive ID: %s\nFolder ID: %s\nTraceback:\n%s",
+                source.get_display_name(),
+                error_details["error_type"],
+                error_details["error_message"],
+                source.drive_id,
+                source.folder_id or "N/A",
+                error_details["traceback"],
+            )
             
             # Mark job as failed
             self.update_job(

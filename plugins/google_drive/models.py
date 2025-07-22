@@ -3,13 +3,7 @@
 from typing import List, Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field
 from datetime import datetime
-from enum import Enum
 
-
-class AuthType(Enum):
-    """Authentication types for Google Drive."""
-    OAUTH = "oauth"
-    SERVICE_ACCOUNT = "service_account"
 
 
 class GoogleDriveSource(BaseModel):
@@ -48,21 +42,6 @@ class GoogleDriveSource(BaseModel):
             return f"Drive: {self.drive_id}"
 
 
-class GoogleDriveFile(BaseModel):
-    """Model for Google Drive file metadata."""
-    id: str = Field(..., description="Google Drive file ID")
-    name: str = Field(..., description="File name")
-    mime_type: str = Field(..., description="MIME type of the file")
-    size: Optional[int] = Field(default=None, description="File size in bytes")
-    created_time: datetime = Field(..., description="File creation timestamp")
-    modified_time: datetime = Field(..., description="Last modified timestamp")
-    parent_ids: List[str] = Field(default_factory=list, description="Parent folder IDs")
-    md5_checksum: Optional[str] = Field(default=None, description="MD5 checksum for change detection")
-    web_view_link: Optional[str] = Field(default=None, description="Web view link")
-    owners: List[str] = Field(default_factory=list, description="List of owner emails")
-    shared: bool = Field(default=False, description="Whether the file is shared")
-
-
 class GoogleDriveConfig(BaseModel):
     """Configuration for Google Drive plugin."""
     enabled: bool = Field(default=False, description="Whether the plugin is enabled")
@@ -92,16 +71,3 @@ class GoogleDriveConfig(BaseModel):
             return self.config.get("service_account_config", {})
         return None
 
-
-class GoogleDriveIngestionJob(BaseModel):
-    """Model for tracking Google Drive ingestion job."""
-    source_id: str
-    drive_id: str
-    folder_id: Optional[str] = None
-    started_at: datetime
-    completed_at: Optional[datetime] = None
-    files_processed: int = 0
-    files_failed: int = 0
-    total_files: int = 0
-    status: str = "running"
-    error_message: Optional[str] = None 

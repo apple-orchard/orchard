@@ -37,25 +37,3 @@ class GitHubConfig(BaseModel):
         """Get GitHub token from config."""
         return self.config.get("github_token")
 
-
-class GitHubFileInfo(BaseModel):
-    """Information about a file in GitHub."""
-    path: str
-    content: str
-    size: int
-    sha: str
-    last_modified: Optional[datetime] = None
-    url: str
-    download_url: str
-
-
-class GitHubIngestionJob(BaseModel):
-    """Model for tracking GitHub ingestion job."""
-    repository: str
-    branch: str
-    started_at: datetime
-    completed_at: Optional[datetime] = None
-    files_processed: int = 0
-    files_failed: int = 0
-    status: str = "running"
-    error_message: Optional[str] = None 
