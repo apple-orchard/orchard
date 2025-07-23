@@ -23,7 +23,17 @@ class SlackDataProcessor:
         self.users = users
         self.channels = channels
 
-    def process_message(self, message: Dict, channel_name: str) -> Dict:
+    def should_include_message(self, message: Dict) -> bool:
+        """Check if a message should be included based on filtering criteria"""
+        # Only include messages with non-empty text content
+        text = message.get('text', '')
+        return text and text.strip()
+    
+    def process_message(self, message: Dict, channel_name: str) -> Optional[Dict]:
+        # Filter out messages that don't meet criteria
+        if not self.should_include_message(message):
+            return None
+            
         document_id = message.get('client_msg_id') or message.get('ts') or str(uuid.uuid4())
         document_type = 'message'
         if message.get('subtype') == 'thread_broadcast':
@@ -165,11 +175,12 @@ class SlackExportStreamer:
                 
                 for message in messages:
                     processed_message = data_processor.process_message(message, channel_name)
-                    batch.append(processed_message)
-                    
-                    if len(batch) >= batch_size:
-                        yield batch
-                        batch = []
+                    if processed_message is not None:  # Only include non-None messages
+                        batch.append(processed_message)
+                        
+                        if len(batch) >= batch_size:
+                            yield batch
+                            batch = []
                         
             except json.JSONDecodeError as e:
                 print(f"Error parsing {json_file}: {e}")
@@ -182,13 +193,10 @@ class SlackExportStreamer:
     def send_to_api(self, data: List[Dict], batch_number: int, is_final_batch: bool) -> bool:
         """Send batch of messages to /ingest/batch API endpoint"""
         url = self.api_url.rstrip('/') + '/ingest/batch'
-        filtered_data = [msg for msg in data if 'content' in msg and msg['content'].get('text')]
-        if len(filtered_data) < len(data):
-            print(f"Warning: {len(data) - len(filtered_data)} messages missing 'text' field were skipped.")
         batch_id = str(uuid.uuid4())
         payload = {
             "batch_id": batch_id,
-            "documents": filtered_data,
+            "documents": data,
             "batch_metadata": {
                 "batch_number": batch_number,
                 "is_final_batch": is_final_batch
@@ -199,12 +207,12 @@ class SlackExportStreamer:
                 f.write(f"\n--- Batch {batch_number} ---\n")
                 f.write(json.dumps(payload, ensure_ascii=False, indent=2))
                 f.write("\n")
-            print(f"[DRY RUN] Wrote batch {batch_number} of {len(filtered_data)} messages to {self.dry_run_file}")
+            print(f"[DRY RUN] Wrote batch {batch_number} of {len(data)} messages to {self.dry_run_file}")
             return True
         try:
             response = self.session.post(url, json=payload)
             response.raise_for_status()
-            print(f"Successfully sent batch {batch_number} of {len(filtered_data)} messages to API")
+            print(f"Successfully sent batch {batch_number} of {len(data)} messages to API")
             return True
         except requests.exceptions.RequestException as e:
             print(f"Error sending batch {batch_number} to API: {e}")
