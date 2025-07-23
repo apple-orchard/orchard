@@ -1,7 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from typing import Union
 
 class QueryRequest(BaseModel):
     question: str
