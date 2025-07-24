@@ -56,11 +56,17 @@ class ChromaDBManager:
             # Generate unique IDs for each chunk
             ids = [str(uuid.uuid4()) for _ in chunks]
 
+            # Filter out None values from metadata (ChromaDB doesn't accept None values)
+            cleaned_metadatas = []
+            for metadata in metadatas:
+                cleaned_metadata = {k: v for k, v in metadata.items() if v is not None}
+                cleaned_metadatas.append(cleaned_metadata)
+
             # Add to collection
             self.collection.add(
                 documents=chunks,
                 embeddings=embeddings,
-                metadatas=metadatas,
+                metadatas=cleaned_metadatas,
                 ids=ids
             )
 

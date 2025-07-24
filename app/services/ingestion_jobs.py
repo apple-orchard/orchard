@@ -49,7 +49,7 @@ class IngestionJob:
     chunks_created: int = 0
     total_items: int = 0
     processed_items: int = 0
-    metadata: Dict[str, Any] = None
+    metadata: Optional[Dict[str, Any]] = None
 
     def __post_init__(self):
         if self.metadata is None:
@@ -176,9 +176,13 @@ class IngestionJobManager:
                             job.message = result.get("message", f"Completed successfully - {chunks_created} chunks created")
                         else:
                             job.message = result.get("message", "Completed successfully")
+                            
+                        # Store error details if any
+                        if result.get("errors"):
+                            job.error_message = "; ".join(result.get("errors", []))
 
                 # Calculate execution time
-                execution_time = (job.completed_at - job.started_at).total_seconds()
+                execution_time = (job.completed_at - job.started_at).total_seconds() if job.started_at else 0.0
                 logger.info(f"✅ Completed job {job_id} in {execution_time:.2f}s - {job.chunks_created} chunks created")
 
             except Exception as e:
@@ -226,7 +230,7 @@ class IngestionJobManager:
             # Update jobs dict
             self.jobs = {job.job_id: job for job in jobs_to_keep}
 
-            removed_count = len(all_jobs) - len(jobs_to_keep)
+            removed_count = len(all_jobs) - len(jobs_to_keep) if jobs_to_keep is not None else len(all_jobs)
             if removed_count > 0:
                 logger.info(f"Cleaned up {removed_count} old ingestion jobs")
 

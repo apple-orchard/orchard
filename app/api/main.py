@@ -373,25 +373,43 @@ async def ingest_batch_messages(request: BatchIngestRequest, sync: bool = False)
         if sync:
             total_chunks = 0
             errors = []
-            for idx, msg in enumerate(request.messages):
-                text = msg.text
-                if not text:
-                    errors.append(f"Message at index {idx} missing 'text' field.")
+            for idx, doc in enumerate(request.documents):
+                # Handle both Pydantic models and dictionaries
+                if hasattr(doc, 'content') and hasattr(doc.content, 'text'):
+                    # Pydantic model
+                    text = doc.content.text
+                    document_id = doc.document_id
+                    document_type = doc.document_type
+                    channel_name = doc.channel.name
+                elif isinstance(doc, dict) and 'content' in doc and 'text' in doc['content']:
+                    # Dictionary format (from external plugins)
+                    text = doc['content']['text']
+                    document_id = doc.get('document_id', f'doc_{idx}')
+                    document_type = doc.get('document_type', 'message')
+                    channel_name = doc.get('channel', {}).get('name', 'unknown')
+                else:
+                    errors.append(f"Document at index {idx} has invalid format.")
                     continue
-                # Merge message metadata and request metadata for traceability
-                if request.metadata is not None and not isinstance(request.metadata, dict):
-                    raise HTTPException(status_code=400, detail="Invalid type for metadata. Expected a dictionary.")
-                metadata = dict(request.metadata) if request.metadata else {}
-                if msg.metadata:
-                    if not isinstance(msg.metadata, dict):
-                        raise HTTPException(status_code=400, detail=f"Invalid type for message metadata at index {idx}. Expected a dictionary.")
-                    metadata.update(msg.metadata)
+                
+                if not text:
+                    errors.append(f"Document at index {idx} missing 'content.text' field.")
+                    continue
+                
+                # Merge all relevant metadata for traceability
+                metadata = {
+                    "batch_id": request.batch_id,
+                    "batch_number": request.batch_metadata.batch_number,
+                    "is_final_batch": request.batch_metadata.is_final_batch,
+                    "document_id": document_id,
+                    "document_type": document_type,
+                    "channel": channel_name,
+                }
                 result = rag_service.ingest_text(text, metadata)
                 if result.get("success"):
                     total_chunks += result.get("chunks_created", 0)
                 else:
-                    errors.append(f"Error ingesting message at index {idx}: {result.get('message')}")
-
+                    errors.append(f"Error ingesting document at index {idx}: {result.get('message')}")
+                
             success = len(errors) == 0
             message = "Batch ingestion completed successfully." if success else f"Completed with errors: {'; '.join(errors)}"
 
@@ -406,9 +424,27 @@ async def ingest_batch_messages(request: BatchIngestRequest, sync: bool = False)
 
         # Default async mode
         # Convert pydantic models to dicts
-        messages_dict = [{"text": msg.text, "metadata": msg.metadata} for msg in request.messages]
+        messages_dict = []
+        for doc in request.documents:
+            # Handle both Pydantic models and dictionaries
+            if hasattr(doc, 'content') and hasattr(doc.content, 'text'):
+                # Pydantic model
+                text = doc.content.text
+                metadata = doc.metadata
+            elif isinstance(doc, dict) and 'content' in doc and 'text' in doc['content']:
+                # Dictionary format (from external plugins)
+                text = doc['content']['text']
+                metadata = doc.get('metadata', {})
+            else:
+                # Skip invalid documents
+                continue
+            
+            messages_dict.append({"text": text, "metadata": metadata})
 
-        job_id = rag_service.ingest_batch_async(messages_dict, request.metadata)
+        # Convert BatchMetadata to dict
+        batch_metadata_dict = request.batch_metadata.model_dump() if request.batch_metadata else None
+
+        job_id = rag_service.ingest_batch_async(messages_dict, batch_metadata_dict)
 
         job = job_manager.get_job(job_id)
         if not job:
@@ -624,9 +660,27 @@ async def ingest_batch_async(request: BatchIngestRequest):
     """Start an async batch ingestion job."""
     try:
         # Convert pydantic models to dicts
-        messages_dict = [{"text": msg.text, "metadata": msg.metadata} for msg in request.messages]
+        messages_dict = []
+        for doc in request.documents:
+            # Handle both Pydantic models and dictionaries
+            if hasattr(doc, 'content') and hasattr(doc.content, 'text'):
+                # Pydantic model
+                text = doc.content.text
+                metadata = doc.metadata
+            elif isinstance(doc, dict) and 'content' in doc and 'text' in doc['content']:
+                # Dictionary format (from external plugins)
+                text = doc['content']['text']
+                metadata = doc.get('metadata', {})
+            else:
+                # Skip invalid documents
+                continue
+            
+            messages_dict.append({"text": text, "metadata": metadata})
 
-        job_id = rag_service.ingest_batch_async(messages_dict, request.metadata)
+        # Convert BatchMetadata to dict
+        batch_metadata_dict = request.batch_metadata.model_dump() if request.batch_metadata else None
+
+        job_id = rag_service.ingest_batch_async(messages_dict, batch_metadata_dict)
 
         job = job_manager.get_job(job_id)
         if not job:

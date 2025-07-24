@@ -19,6 +19,7 @@ class RAGService:
     def __init__(self):
         self.chroma_db = chroma_db
         self.document_processor = document_processor
+        self.logger = logger
 
     async def query(
         self,
@@ -324,6 +325,9 @@ class RAGService:
 
         job_id = job_manager.create_job(JobType.BATCH_INGESTION, job_metadata)
 
+        # Capture the RAGService instance for use in the batch task
+        rag_service = self
+        
         def batch_task(job: IngestionJob, messages: List[Dict[str, Any]], metadata: Optional[Dict[str, Any]]):
             total_messages = len(messages)
             job.update_progress(0, total_messages, f"Starting batch ingestion - {total_messages} messages to process")
@@ -347,7 +351,7 @@ class RAGService:
                     combined_metadata.update(msg["metadata"])
 
                 try:
-                    result = self.ingest_text(text, combined_metadata)
+                    result = rag_service.ingest_text(text, combined_metadata)
                     if result.get("success"):
                         chunks_created = result.get("chunks_created", 0)
                         total_chunks += chunks_created
