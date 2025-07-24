@@ -1,4 +1,4 @@
-import React, { useState, useRef, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useRef, useImperativeHandle, forwardRef, useLayoutEffect } from 'react';
 import { InputFormProps } from '../types';
 
 // Define the ref type for the InputForm component
@@ -9,6 +9,18 @@ export interface InputFormRef {
 const InputForm = forwardRef<InputFormRef, InputFormProps>(({ value, onChange, onSend, isLoading, placeholder }, ref) => {
   const [inputValue, setInputValue] = useState<string>('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+
+    if (ta.value === "") {
+      ta.style.height = "";
+    } else {
+      ta.style.height = "auto";
+      ta.style.height = `${ta.scrollHeight}px`;
+    }
+  }, [inputValue]);
 
   // Expose the focus method to parent components
   useImperativeHandle(ref, () => ({
@@ -47,7 +59,7 @@ const InputForm = forwardRef<InputFormRef, InputFormProps>(({ value, onChange, o
           placeholder={placeholder}
           disabled={isLoading}
           rows={1}
-          className="flex-1 min-h-[40px] md:min-h-[40px] max-h-[120px] resize-none border border-gray-300 rounded-full px-3 py-2 md:px-4 md:py-3 text-sm md:text-sm font-inherit leading-relaxed transition-colors duration-200 focus:outline-none focus:border-blue-500 focus:shadow-[0_0_0_2px_rgba(59,130,246,0.25)] disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed"
+          className="w-full min-h-[40px] md:min-h-[40px] max-h-[120px] resize-none overflow-y-hidden border border-gray-300 rounded-sm px-3 py-2 md:px-4 md:py-3 text-sm md:text-sm font-inherit leading-relaxed transition-colors duration-200 focus:outline-none focus:border-blue-500 focus:shadow-[0_0_0_2px_rgba(59,130,246,0.25)] disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed"
         />
         <button
           type="submit"
